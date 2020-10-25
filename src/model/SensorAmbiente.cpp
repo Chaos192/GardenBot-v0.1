@@ -1,0 +1,76 @@
+#include "SensorAmbiente.h"
+#include <DHT.h>
+#include <SimpleMap.h>
+#include <ArduinoJson.h>
+
+const char *HUM= "Humedad";
+const char *TEMP= "Temperatura";
+const char *DEVICE_ID= "Device ID";
+const char *DEV_NAME= "Sensor Ambiente";
+const char *TIMESTAMP= "Time";
+
+SensorAmbiente::SensorAmbiente(uint8_t pin, uint8_t type, int id, String nombre): sensor(pin, type) {
+    this ->_nombre = nombre;
+    this ->_id = id;
+}
+
+void SensorAmbiente::begin() {
+    sensor.begin();
+}
+
+int SensorAmbiente::id() {
+    return this->_id;
+}
+
+String SensorAmbiente::nombre() {
+    return this->_nombre;
+}
+
+SimpleMap<String, float> SensorAmbiente::getData() {
+    _temp = sensor.readTemperature();
+    _hum = sensor.readHumidity();
+    SimpleMap<String, float> dataMap = SimpleMap<String, float>([](String &a, String &b) -> int {
+            if (a == b) return 0;      // a and b are equal
+            else if (a > b) return 1;  // a is bigger than b
+            else return -1;            // a is smaller than b
+        });
+    delay(2000);                   // delay for getting DHT11 data
+    if (isnan(_hum) || isnan(_temp)) // Check if any reads failed and exit early (to try again).
+    {
+        Serial.println("Failed to read from DHT sensor!");
+        dataMap.put(TEMP, 0.0f);
+        dataMap.put(HUM, 0.0f);
+
+    } else {
+        dataMap.put(TEMP, _temp);
+        dataMap.put(HUM, _hum);
+        printToSerial(_temp, _hum);
+    }
+
+    return dataMap;
+}
+
+void SensorAmbiente::printToSerial(float t, float h) {
+    Serial.print(" Temperature: ");
+    Serial.print(t);
+    Serial.print("oC   Humidity: ");
+    Serial.print(h);
+    Serial.println("%");
+}
+
+/**
+ * returns Json document 
+ * containing device data and
+ * measurements*/
+
+DynamicJsonDocument SensorAmbiente::getJsonData() {
+    SimpleMap<String, float> map = getData();
+    StaticJsonDocument<512> json;
+    json[DEVICE_ID] = _id;
+    json[DEV_NAME] = _nombre;
+    json[TEMP] = map.get(TEMP);
+    json[HUM] = map.get(HUM);
+    return json; 
+}
+
+
