@@ -30,7 +30,7 @@ public:
     int id();
     String nombre();
     void printToSerial(float t, float h);
-    DynamicJsonDocument getJsonData();
+    JsonObject getJsonData();
 
 
 };

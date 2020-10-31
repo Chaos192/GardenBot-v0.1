@@ -46,5 +46,6 @@
         "utility": "cpp",
         "typeinfo": "cpp",
         "vector": "cpp"
-    }
+    },
+    "python.pythonPath": "d:\\Repositories\\GardenBot v0.1\\cloud\\flask_rest_service\\venv\\Scripts\\python.exe"
 }

@@ -1,6 +1,4 @@
 #include <Arduino.h>
-#include <WiFiClient.h>
-#include <ESP8266WebServer.h>
 #include <ESP8266mDNS.h>
 #include <ArduinoJson.h>
 #include <SimpleMap.h>
@@ -8,16 +6,20 @@
 #include "./model/AutoPilot.h"
 #include "./model/SensorTierra.h"
 #include "./model/SensorAmbiente.h"
+#include "./utils/Constants.h"
 
 
 // WIFI setup
 #include <ESP8266WiFi.h>
+#include <ESP8266WiFiMulti.h>
+#include <ESP8266HTTPClient.h>
+#include <WiFiClient.h>
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 const char *nombreRed = "FUMANCHU";
 const char *pwdRed = "heyholetsgo";
-ESP8266WebServer server(80);
-String header;
+ESP8266WiFiMulti WiFiMulti;
+
 
 //DEFAULT SETTINGS
 #define tierraSeca 0
@@ -26,14 +28,10 @@ String header;
 #define tempBaja 22
 #define aireSeco 40
 #define aireHum 99
-#define horaLampON 13
-#define horaLampOFF 7
+#define horaLampON 21
+#define horaLampOFF 9
 
-//JSON LABELS
-const char *HUM= "Humedad";
-const char *TEMP= "Temperatura";
-const char *DEVICE_ID= "Device ID";
-const char *TIMESTAMP= "Time";
+
 
 
 // DHT11
@@ -52,6 +50,8 @@ uint8_t lamp = D8;
 uint8_t vent = D7;
 uint8_t extr = D6;
 uint8_t intr = D5;
+uint8_t builtin = BUILTIN_LED;
+
 
 // IDS
 #define LAMP_ID 0
@@ -77,17 +77,20 @@ Dispositivo intractor = Dispositivo(intr, "Intractor", INTR_ID);
 Dispositivo extractor = Dispositivo(extr, "Extractor", EXTR_ID);
 SensorTierra sensorMaceta(sensorTierraVcc, sensorTierra, FC28_ID, "Sensor Tierra");
 SensorAmbiente sensorAire = SensorAmbiente(DHTPIN, DHTTYPE, DHT11_ID, "Sensor Ambiente");
+Dispositivo built_in = Dispositivo(builtin, "built-in LED", 99);
 
 //FUNCTION PROTOTYPES
 void setupPeripherals();
-void setupWifi(String, String);
+void setupWifi();
 void homeWelcome();                            
 void handleNotFound();
 void sendDhtPacket();
 void setupTimerIntervals();
-void checkAllSensorsData();
+void sendPayloadToServer();
+String getSensorsDataAsJSON();
+
 String fechaYhora();
-DynamicJsonDocument getJsonData(SimpleMap<String, float>);
+long timestamp();
 
 
 
@@ -95,53 +98,89 @@ DynamicJsonDocument getJsonData(SimpleMap<String, float>);
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(9600);
-  setupPeripherals();
-  setupWifi(nombreRed, pwdRed);
+  setupPeripherals();  
+  setupWifi();
   setupTimerIntervals();
 
 }
 
-/**
- * SimpleTimer Interval setup*/
-void setupTimerIntervals() {
-  timer.setInterval(10000, checkAllSensorsData);
-}
-
 // WIFI SETUP
 
-void setupWifi(String ssid, String pwd) {
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, pwd);
-  Serial.println("");
+void setupWifi() {
+  WiFi.begin(nombreRed, pwdRed);
 
-  // Wait for connection
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
   }
   Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
+  Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
 
-  if (MDNS.begin("esp8266")) {
-    Serial.println("MDNS responder started");
-  }
-
-  server.on("/", homeWelcome);
-
-  server.on("/dht", sendDhtPacket);                        //endpoints
-
-  server.onNotFound(handleNotFound);
-
-  server.begin();
-  Serial.println("HTTP server started");
 }
 
-void checkAllSensorsData() {
-  //TODO get fresh measurements from sensors
-  // maybe add json document upload to DB?
+/**************************************
+ * gets sensor data as JSON string and
+ * sends to server via POST method
+ * ************************************/
+void sendPayloadToServer(){
+    if ((WiFi.status() == WL_CONNECTED)) {
+
+    WiFiClient client;
+    HTTPClient http;
+
+    Serial.print("[HTTP] begin...\n");
+    // configure traged server and url
+    http.begin(client, "http://charr0max.pythonanywhere.com/measures"); //HTTP
+    http.addHeader("Content-Type", "application/json");
+    String data = getSensorsDataAsJSON();
+    Serial.print("[HTTP] POST...\n" + data);
+    // start connection and send HTTP header and body
+    int httpCode = http.POST(data);
+
+    // httpCode will be negative on error
+    if (httpCode > 0) {
+      // HTTP header has been send and Server response header has been handled
+      Serial.printf("[HTTP] POST... code: %d\n", httpCode);
+
+      // file found at server
+      if (httpCode == HTTP_CODE_OK) {
+        built_in.blink();
+        const String& payload = http.getString();
+        Serial.println("received payload:\n<<");
+        Serial.println(payload);
+        Serial.println(">>");
+      }
+    } else {
+      Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    }
+
+    http.end();
+  }
+
+}
+
+/**
+ * @returns JsonDocument containing all sensor data
+ * as a json serialized string
+ * */
+
+String getSensorsDataAsJSON() {
+  Serial.println("Getting all sensors data...");
+  SimpleMap<String, float> map = sensorAire.getData();
+  int soilHum = sensorMaceta.getDataSuelo();
+
+  const size_t capacity = JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(5);
+  DynamicJsonDocument doc(capacity);
+  doc[Constants::TIMESTAMP] = timestamp();
+  JsonObject data = doc.createNestedObject("data");
+  data[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
+  data[Constants::TEMP] = map.get(Constants::TEMP);
+  data[Constants::HUM_SOIL] = soilHum;
+
+  String buffer = "";
+  serializeJson(doc, buffer);
+  return buffer;
 }
 
 // DEVICE INIT
@@ -152,41 +191,15 @@ void setupPeripherals() {
   extractor.begin();
   sensorAire.begin();
   sensorMaceta.begin();
-}
-
-
-// HOME PAGE
-void homeWelcome() {
-  server.send(200, "text/plain", "Bienvenido a GardenBot API");
-  Serial.print("home");
-}
-
-// 404 NOT FOUND
-void handleNotFound() {
-  String message = "File Not Found\n\n";
-  message += "URI: ";
-  message += server.uri();
-  message += "\nMethod: ";
-  message += (server.method() == HTTP_GET) ? "GET" : "POST";
-  message += "\nArguments: ";
-  message += server.args();
-  message += "\n";
-  for (uint8_t i = 0; i < server.args(); i++) {
-    message += " " + server.argName(i) + ": " + server.arg(i) + "\n";
-  }
-  server.send(404, "text/plain", message);
-  Serial.println("404");
-  
+  built_in.begin();
 }
 
 // /DHT PAGE
 void sendDhtPacket() {
   DynamicJsonDocument doc = sensorAire.getJsonData();
-  doc[TIMESTAMP] = fechaYhora();
+  doc[Constants::TIMESTAMP] = timestamp();
   String buffer;
   serializeJson(doc, buffer);
-  server.send(200, F("application/json"), buffer);
-  Serial.print(F("dht data sent"));
 }
 
 /********************************************************************
@@ -200,9 +213,21 @@ String fechaYhora() {
   return fechayhora;
 }
 
+long timestamp() {
+  long timestamp = 0;
+  clienteReloj.update();
+  timestamp = clienteReloj.getEpochTime();
+  Serial.println(timestamp);
+  return timestamp;
+}
+
+/**
+ * SimpleTimer Interval setup*/
+void setupTimerIntervals() {
+  timer.setInterval(10000, sendPayloadToServer);
+}
 
 void loop() {
   // put your main code here, to run repeatedly:
-  server.handleClient();
   timer.run();
 }

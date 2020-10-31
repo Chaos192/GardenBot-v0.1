@@ -1,9 +1,6 @@
 #include "Dispositivo.h"
 #include <ArduinoJson.h>
-
-const char *DEVICE_ID= "Device ID";
-const char *DEV_NAME= "Dispositivo";
-const char *STATUS= "Status";
+#include "./utils/Constants.h"
 
 Dispositivo::Dispositivo(){}
 Dispositivo::Dispositivo(uint8_t pin, String nombre, int id) {
@@ -28,6 +25,11 @@ void Dispositivo::on() {
     digitalWrite(_pin, HIGH);
     _estado = HIGH;
 }
+void Dispositivo::blink() {
+    on();
+    delay(500);
+    off();
+}
 
 String Dispositivo::nombre() {
     return this->_nombre;
@@ -48,8 +50,8 @@ int Dispositivo::id() {
 
 DynamicJsonDocument Dispositivo::getJsonData() {
     StaticJsonDocument<512> json;
-    json[DEVICE_ID] = _id;
-    json[DEV_NAME] = _nombre;
-    json[STATUS] = estado();
+    json[Constants::DEVICE_ID] = _id;
+    json[Constants::DEVICE_NAME] = _nombre;
+    json[Constants::STATUS] = estado();
     return json; 
 }

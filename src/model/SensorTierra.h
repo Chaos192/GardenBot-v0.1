@@ -23,7 +23,7 @@ public:
   int id();
   String nombre();
   void printToSerial(int h);
-  DynamicJsonDocument getJsonData();
+  JsonObject getJsonData();
 };
 
 #endif

@@ -16,7 +16,6 @@ AutoPilot::AutoPilot(Dispositivo _disp, long _timeon, long _timeoff, bool _ishou
 void AutoPilot::startAP() {
     WiFiUDP servidorReloj;
     NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
-
     unsigned long ahoraMillis = millis();
     clienteReloj.update();
 
@@ -26,7 +25,7 @@ void AutoPilot::startAP() {
       if (((int)timeON <= horaActual) && ((int)horaActual < timeOFF))
       {
         disp.on();
-        if (disp.estado())
+        if (disp.estado().equalsIgnoreCase("on"))
         {
           Serial.println(disp.nombre() + " encendido correctamente");
         }
@@ -38,7 +37,7 @@ void AutoPilot::startAP() {
       else
       {
         disp.off();
-        if (!disp.estado())
+        if (disp.estado().equalsIgnoreCase("off"))
         {
           Serial.println(disp.nombre() + " apagado correctamente");
         }
@@ -50,11 +49,11 @@ void AutoPilot::startAP() {
     }
     else
 
-        if ((disp.estado()) && (ahoraMillis - anteriorMillis >= timeON))
+        if ((disp.estado().equalsIgnoreCase("on")) && (ahoraMillis - anteriorMillis >= timeON))
     {
       disp.off();
     }
-    else if ((!disp.estado()) && (ahoraMillis - anteriorMillis >= timeOFF))
+    else if ((disp.estado().equalsIgnoreCase("off")) && (ahoraMillis - anteriorMillis >= timeOFF))
     {
       disp.on();
     }

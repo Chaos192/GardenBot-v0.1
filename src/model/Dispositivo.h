@@ -19,6 +19,7 @@ public:
   void on();
   void off();
   void begin();
+  void blink();
   String estado();
   String nombre();
   int id();

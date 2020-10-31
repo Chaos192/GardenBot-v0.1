@@ -1,9 +1,6 @@
 #include "SensorTierra.h"
 #include <ArduinoJson.h>
-
-const char *DEVICE_ID= "Device ID";
-const char *DEV_NAME= "Sensor Tierra";
-const char *HUM= "Humedad";
+#include "./utils/Constants.h"
 
 SensorTierra::SensorTierra(uint8_t pinVCC, uint8_t pinanalog, int id, String nombre) {
     this->_pinVCC = pinVCC;
@@ -63,10 +60,12 @@ void SensorTierra::printToSerial(int h) {
  * containing device data and
  * measurements*/
 
-DynamicJsonDocument SensorTierra::getJsonData() {
-    StaticJsonDocument<512> json;
-    json[DEVICE_ID] = _id;
-    json[DEV_NAME] = _nombre;
-    json[HUM] = getDataSuelo();
+JsonObject SensorTierra::getJsonData() {
+    const size_t capacity = JSON_OBJECT_SIZE(3);
+    DynamicJsonDocument doc(capacity);
+    JsonObject json = doc.to<JsonObject>();
+    json[Constants::DEVICE_ID] = _id;
+    json[Constants::DEVICE_NAME] = _nombre;
+    json[Constants::HUM_SOIL] = getDataSuelo();
     return json; 
 }

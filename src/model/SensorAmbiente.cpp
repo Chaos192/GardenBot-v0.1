@@ -1,13 +1,9 @@
 #include "SensorAmbiente.h"
+#include "./utils/Constants.h"
 #include <DHT.h>
 #include <SimpleMap.h>
 #include <ArduinoJson.h>
 
-const char *HUM= "Humedad";
-const char *TEMP= "Temperatura";
-const char *DEVICE_ID= "Device ID";
-const char *DEV_NAME= "Sensor Ambiente";
-const char *TIMESTAMP= "Time";
 
 SensorAmbiente::SensorAmbiente(uint8_t pin, uint8_t type, int id, String nombre): sensor(pin, type) {
     this ->_nombre = nombre;
@@ -38,12 +34,12 @@ SimpleMap<String, float> SensorAmbiente::getData() {
     if (isnan(_hum) || isnan(_temp)) // Check if any reads failed and exit early (to try again).
     {
         Serial.println("Failed to read from DHT sensor!");
-        dataMap.put(TEMP, 0.0f);
-        dataMap.put(HUM, 0.0f);
+        dataMap.put(Constants::TEMP, 0.0f);
+        dataMap.put(Constants::HUM_AIR, 0.0f);
 
     } else {
-        dataMap.put(TEMP, _temp);
-        dataMap.put(HUM, _hum);
+        dataMap.put(Constants::TEMP, _temp);
+        dataMap.put(Constants::HUM_AIR, _hum);
         printToSerial(_temp, _hum);
     }
 
@@ -63,13 +59,15 @@ void SensorAmbiente::printToSerial(float t, float h) {
  * containing device data and
  * measurements*/
 
-DynamicJsonDocument SensorAmbiente::getJsonData() {
+JsonObject SensorAmbiente::getJsonData() {
     SimpleMap<String, float> map = getData();
-    StaticJsonDocument<512> json;
-    json[DEVICE_ID] = _id;
-    json[DEV_NAME] = _nombre;
-    json[TEMP] = map.get(TEMP);
-    json[HUM] = map.get(HUM);
+    const size_t capacity = JSON_OBJECT_SIZE(4);
+    DynamicJsonDocument doc(capacity);
+    JsonObject json = doc.to<JsonObject>();
+    json[Constants::DEVICE_ID] = _id;
+    json[Constants::DEVICE_NAME] = _nombre;
+    json[Constants::TEMP] = map.get(Constants::TEMP);
+    json[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
     return json; 
 }
 
