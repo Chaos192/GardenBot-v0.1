@@ -50,7 +50,7 @@ uint8_t lamp = D8;
 uint8_t vent = D7;
 uint8_t extr = D6;
 uint8_t intr = D5;
-uint8_t builtin = BUILTIN_LED;
+uint8_t builtin = LED_BUILTIN;
 
 
 // IDS
@@ -88,9 +88,7 @@ void sendDhtPacket();
 void setupTimerIntervals();
 void sendPayloadToServer();
 String getSensorsDataAsJSON();
-
 String fechaYhora();
-long timestamp();
 
 
 
@@ -172,7 +170,6 @@ String getSensorsDataAsJSON() {
 
   const size_t capacity = JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(5);
   DynamicJsonDocument doc(capacity);
-  doc[Constants::TIMESTAMP] = timestamp();
   JsonObject data = doc.createNestedObject("data");
   data[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
   data[Constants::TEMP] = map.get(Constants::TEMP);
@@ -197,7 +194,6 @@ void setupPeripherals() {
 // /DHT PAGE
 void sendDhtPacket() {
   DynamicJsonDocument doc = sensorAire.getJsonData();
-  doc[Constants::TIMESTAMP] = timestamp();
   String buffer;
   serializeJson(doc, buffer);
 }
@@ -213,13 +209,6 @@ String fechaYhora() {
   return fechayhora;
 }
 
-long timestamp() {
-  long timestamp = 0;
-  clienteReloj.update();
-  timestamp = clienteReloj.getEpochTime();
-  Serial.println(timestamp);
-  return timestamp;
-}
 
 /**
  * SimpleTimer Interval setup*/
