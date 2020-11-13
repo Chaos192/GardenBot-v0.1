@@ -10,37 +10,31 @@
 
 
 // WIFI setup
-#include <ESP8266WiFi.h>
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266HTTPClient.h>
 #include <WiFiClient.h>
 #include <WiFiUdp.h>
 #include <NTPClient.h>
-const char *nombreRed = "FUMANCHU";
-const char *pwdRed = "heyholetsgo";
-ESP8266WiFiMulti WiFiMulti;
 
+ESP8266WiFiMulti WiFiMulti;
 
 //DEFAULT SETTINGS
 #define tierraSeca 0
 #define tierraHum 75
 #define tempAlta 26
 #define tempBaja 22
-#define aireSeco 40
-#define aireHum 99
-#define horaLampON 21
-#define horaLampOFF 9
-
-
-
-
+#define aireSeco 20
+#define aireHum 80
+#define horaLampON 9
+#define horaLampOFF 21
 // DHT11
 #include <DHT.h>
 #define DHTPIN D1
 #define DHTTYPE DHT11
-float temp;
-float hum;
 
+long ventiON;
+long ventiOFF;
+bool isAPRunning = false;
 // Soil Moisture Sensor
 uint8_t sensorTierra = A0;
 uint8_t sensorTierraVcc = D2;
@@ -51,7 +45,7 @@ uint8_t vent = D7;
 uint8_t extr = D6;
 uint8_t intr = D5;
 uint8_t builtin = LED_BUILTIN;
-
+uint8_t pump = D4;
 
 // IDS
 #define LAMP_ID 0
@@ -60,12 +54,18 @@ uint8_t builtin = LED_BUILTIN;
 #define EXTR_ID 3
 #define FC28_ID 4
 #define DHT11_ID 5
+#define PUMP_ID 6
 
 // TIMER
 #include <SimpleTimer.h>
 SimpleTimer timer;
 const long utcOffset = -10800; 
 char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
+long send_payload = 5000;        //send payload to server every 30 minutes
+long check_env = 1000;           //check environment every 15 minutes
+long check_auto_pilot = 2000;
+long check_water = 1000 * 60 * 60 * 3;     //check soil humidity every 3 hours
+long check_settings = 1000 * 60 * 60 * 24; //ask server for settings every 24 hours
 
 WiFiUDP servidorReloj;
 NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
@@ -77,7 +77,9 @@ Dispositivo intractor = Dispositivo(intr, "Intractor", INTR_ID);
 Dispositivo extractor = Dispositivo(extr, "Extractor", EXTR_ID);
 SensorTierra sensorMaceta(sensorTierraVcc, sensorTierra, FC28_ID, "Sensor Tierra");
 SensorAmbiente sensorAire = SensorAmbiente(DHTPIN, DHTTYPE, DHT11_ID, "Sensor Ambiente");
+Dispositivo waterPump = Dispositivo(pump, "Bomba de agua", PUMP_ID);
 Dispositivo built_in = Dispositivo(builtin, "built-in LED", 99);
+AutoPilot autoVent(ventilador);
 
 //FUNCTION PROTOTYPES
 void setupPeripherals();
@@ -87,11 +89,14 @@ void handleNotFound();
 void sendDhtPacket();
 void setupTimerIntervals();
 void sendPayloadToServer();
+void checkEnvironment();
+void checkSoilWatering();
+void getSettings();
+long getRandomTime();
+void autoPilotVent();
+void callback();
 String getSensorsDataAsJSON();
 String fechaYhora();
-
-
-
 
 void setup() {
   // put your setup code here, to run once:
@@ -99,13 +104,13 @@ void setup() {
   setupPeripherals();  
   setupWifi();
   setupTimerIntervals();
-
+  isAPRunning = false;
 }
 
 // WIFI SETUP
 
 void setupWifi() {
-  WiFi.begin(nombreRed, pwdRed);
+  WiFi.begin(Constants::SSID, Constants::PASS);
 
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
@@ -114,6 +119,7 @@ void setupWifi() {
   Serial.println("");
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
+
 
 }
 
@@ -129,7 +135,7 @@ void sendPayloadToServer(){
 
     Serial.print("[HTTP] begin...\n");
     // configure traged server and url
-    http.begin(client, "http://charr0max.pythonanywhere.com/measures"); //HTTP
+    http.begin(client, Constants::URL); //HTTP
     http.addHeader("Content-Type", "application/json");
     String data = getSensorsDataAsJSON();
     Serial.print("[HTTP] POST...\n" + data);
@@ -188,14 +194,8 @@ void setupPeripherals() {
   extractor.begin();
   sensorAire.begin();
   sensorMaceta.begin();
+  waterPump.begin();
   built_in.begin();
-}
-
-// /DHT PAGE
-void sendDhtPacket() {
-  DynamicJsonDocument doc = sensorAire.getJsonData();
-  String buffer;
-  serializeJson(doc, buffer);
 }
 
 /********************************************************************
@@ -204,16 +204,77 @@ void sendDhtPacket() {
 String fechaYhora() {
   String fechayhora = "";
   clienteReloj.update();
-  fechayhora = diaSemana[clienteReloj.getDay()] + (String) ", " + clienteReloj.getHours() + ":" + clienteReloj.getMinutes();
+  fechayhora = diaSemana[clienteReloj.getDay()] + (String) ", " + clienteReloj.getFormattedTime();
   Serial.println(fechayhora);
   return fechayhora;
+}
+
+long getRandomTime() {
+  return (random(2, 15)) * 1000;
+}
+
+void checkEnvironment() {
+  SimpleMap<String, float> currentData = sensorAire.getData();
+  float humidity = currentData.get(Constants::HUM_AIR);
+  AutoPilot autoLamp(lampara, horaLampON, horaLampOFF);
+  autoLamp.startAP();
+
+  if (humidity < aireSeco)   // DRY CONDITIONS
+  {
+    extractor.off();
+    intractor.off();
+    ventilador.on();
+    //TODO implement notification
+  }
+  else if (humidity > aireHum)  //WET CONDITIONS
+  {
+    intractor.on();
+    extractor.on();
+    ventilador.on();
+    //TODO implement notification
+  }
+  else if ((humidity >= aireSeco) && (humidity < aireHum))    //NORMAL OPERATION
+  {
+    extractor.on();
+    intractor.off();
+    //TODO implement notification
+  }
+}
+
+void autoPilotVent(){
+  if (!isAPRunning) {
+      autoVent.setStart();
+      ventiON = getRandomTime();
+      ventiOFF = getRandomTime();
+      autoVent.setTime(ventiON, ventiOFF);
+      isAPRunning = true;
+    }
+    autoVent.runForTime(callback); 
+}
+
+void callback() {
+  Serial.println("auto pilot cycle ended");
+  isAPRunning = false;
+}
+
+void checkSoilWatering() {
+  int soilHumdity = sensorMaceta.getDataSuelo();
+  if (soilHumdity <= tierraSeca) {
+    //TODO implement START watering cycle and notification
+  } else {
+    //TODO implement STOP watering cycle and notification
+  }
 }
 
 
 /**
  * SimpleTimer Interval setup*/
 void setupTimerIntervals() {
-  timer.setInterval(10000, sendPayloadToServer);
+  timer.setInterval(check_env, checkEnvironment);
+  timer.setInterval(check_auto_pilot, autoPilotVent);
+  // timer.setInterval(check_water, checkSoilWatering);
+   timer.setInterval(send_payload, sendPayloadToServer);
+  // timer.setInterval(check_settings, getSettings);
 }
 
 void loop() {

@@ -3,19 +3,25 @@
 
 #include <Arduino.h>
 #include "Dispositivo.h"
+#include "SimpleMap.h"
 
 class AutoPilot
 {
 private:
   long timeON;
   long timeOFF;
-  bool isHours;
+  int horaON;
+  int horaOFF;
   Dispositivo disp;
-  unsigned long anteriorMillis = 0;
+  unsigned long anteriorMillis;
 
 public:
-  AutoPilot(Dispositivo _disp, long _timeon, long _timeoff, bool _ishours);
+  AutoPilot(Dispositivo _disp, int _timeon, int _timeoff);
+  AutoPilot(Dispositivo _disp);
+  void setTime(long _timeon, long _timeoff);
   void startAP();
+  void runForTime(void(*callback)());
+  void setStart();
 };
 
 #endif

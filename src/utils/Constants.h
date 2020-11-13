@@ -15,6 +15,23 @@ class Constants {
         static const String URL;
         static const String DATA;
 
+        static const String SSID;
+        static const String PASS;
+
+        static const String MQTT_BROKER;
+        static const int MQTT_BROKER_PORT;
+        static const String MQTT_USERNAME;
+        static const String MQTT_KEY;
+
+
+        static const String BASE_TOPIC;
+        static const String NOTIFICATIONS;
+        static const String DEVICES;
+        static const String ENVIRONMENT;
+
+
+
+
 };
 
 #endif
