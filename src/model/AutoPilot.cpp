@@ -10,15 +10,32 @@ AutoPilot::AutoPilot(Dispositivo _disp, int _timeon, int _timeoff) {
     this->disp = _disp;
     this->horaON = _timeon;
     this->horaOFF = _timeoff;
+    this->isRunning = false;
+    this->paused = false;
 
 }
 AutoPilot::AutoPilot(Dispositivo _disp) {
   this-> disp = _disp;
+  this->isRunning = false;
+  this->paused = false;
 }
+
+bool AutoPilot::isPaused() { return paused; }
+
+bool AutoPilot::isWorking() { return isRunning; }
+
+void AutoPilot::setRunning(bool start) { isRunning = start; }
+
+void AutoPilot::pause(bool pause) { paused = pause; }
 
 void AutoPilot::setTime(long _timeon, long _timeoff) {
   this->timeON = _timeon;
   this->timeOFF = _timeoff;
+}
+
+void AutoPilot::setHours(int _hourON, int _hourOFF) {
+  this->horaON = _hourON;
+  this->horaOFF = _hourOFF;
 }
 
 
@@ -28,38 +45,56 @@ void AutoPilot::setStart(){
 }
 
 void AutoPilot::startAP() {
+
+  if (isRunning && !paused) {
     WiFiUDP servidorReloj;
-    NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
+        NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
+        clienteReloj.update();
+        int horaActual = clienteReloj.getHours();
+      
+        //if light cycle is day/night
+        if (horaON < horaOFF) {       
 
-    clienteReloj.update();
-    int horaActual = clienteReloj.getHours();
-    Serial.println("hora actual" + horaActual);
+          if ((horaON <= horaActual) && (horaActual < horaOFF)) {
+            disp.on();
 
-    if ((horaON <= horaActual) && (horaActual < horaOFF)) {
-      disp.on();
+          } else {
+            disp.off();
+          }
 
-    } else {
+        //else if light cycle is night/day
+        } else {
 
-      disp.off();
-    }
-    
+          if((horaOFF <= horaActual) && (horaActual < horaON)) {
+            disp.off();
+
+          } else {
+            disp.on();
+          }
+        }
+        Serial.println("hora actual" + horaActual);
+  }
 }
 
 void AutoPilot::runForTime(void(*callback)()) {
-  unsigned long ahoraMillis = millis();
-  if ((ahoraMillis - anteriorMillis < timeON))
-    {
-      disp.on();
-      Serial.println(disp.nombre() + " will be on for " + timeON);
-    }
-    else if ((ahoraMillis - anteriorMillis >= timeON) && (ahoraMillis - anteriorMillis < timeOFF))
-    {
-      disp.off();
-      Serial.println(disp.nombre() + " will be off for " + timeOFF);
-    } else if (ahoraMillis - anteriorMillis > timeON + timeOFF) {
-      disp.off();
-      setStart();
-      (*callback)();
-    }
+
+  if (isRunning && !paused) {
+      unsigned long ahoraMillis = millis();
+
+      if ((ahoraMillis - anteriorMillis < timeON)) {
+          disp.on();
+          Serial.println(disp.nombre() + " will be on for " + timeON);
+
+        } else if ((ahoraMillis - anteriorMillis >= timeON) && (ahoraMillis - anteriorMillis < timeOFF)) {
+          disp.off();
+          Serial.println(disp.nombre() + " will be off for " + timeOFF);
+
+        } else if (ahoraMillis - anteriorMillis > timeON + timeOFF) {
+          disp.off();
+          setStart();
+          (*callback)();
+        }
+      }
+  
 }
 

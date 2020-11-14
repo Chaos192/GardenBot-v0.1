@@ -23,10 +23,10 @@ ESP8266WiFiMulti WiFiMulti;
 #define tierraHum 75
 #define tempAlta 26
 #define tempBaja 22
-#define aireSeco 20
-#define aireHum 80
-#define horaLampON 9
-#define horaLampOFF 21
+#define aireSeco 85
+#define aireHum 99
+#define horaLampON 10
+#define horaLampOFF 22
 // DHT11
 #include <DHT.h>
 #define DHTPIN D1
@@ -34,7 +34,6 @@ ESP8266WiFiMulti WiFiMulti;
 
 long ventiON;
 long ventiOFF;
-bool isAPRunning = false;
 // Soil Moisture Sensor
 uint8_t sensorTierra = A0;
 uint8_t sensorTierraVcc = D2;
@@ -61,11 +60,13 @@ uint8_t pump = D4;
 SimpleTimer timer;
 const long utcOffset = -10800; 
 char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
-long send_payload = 5000;        //send payload to server every 30 minutes
-long check_env = 1000;           //check environment every 15 minutes
-long check_auto_pilot = 2000;
-long check_water = 1000 * 60 * 60 * 3;     //check soil humidity every 3 hours
-long check_settings = 1000 * 60 * 60 * 24; //ask server for settings every 24 hours
+
+long send_payload = 1000  * 30;         //send payload to server every 30 minutes
+long check_env = 1000 * 15;            //check environment every 15 minutes
+long check_lamp = 60 *  1000;           //check lamp cycle every hour
+long check_auto_pilot = 1000  * 2;      //check auto pilot cycle every 2 minutes
+long check_water = 1000 * 60  * 3;      //check soil humidity every 3 hours
+long check_settings = 1000 * 60 * 24;  //ask server for settings every 24 hours
 
 WiFiUDP servidorReloj;
 NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
@@ -80,6 +81,7 @@ SensorAmbiente sensorAire = SensorAmbiente(DHTPIN, DHTTYPE, DHT11_ID, "Sensor Am
 Dispositivo waterPump = Dispositivo(pump, "Bomba de agua", PUMP_ID);
 Dispositivo built_in = Dispositivo(builtin, "built-in LED", 99);
 AutoPilot autoVent(ventilador);
+AutoPilot autoLamp(lampara, horaLampON, horaLampOFF);
 
 //FUNCTION PROTOTYPES
 void setupPeripherals();
@@ -91,6 +93,7 @@ void setupTimerIntervals();
 void sendPayloadToServer();
 void checkEnvironment();
 void checkSoilWatering();
+void checkLamp();
 void getSettings();
 long getRandomTime();
 void autoPilotVent();
@@ -104,7 +107,6 @@ void setup() {
   setupPeripherals();  
   setupWifi();
   setupTimerIntervals();
-  isAPRunning = false;
 }
 
 // WIFI SETUP
@@ -132,8 +134,6 @@ void sendPayloadToServer(){
 
     WiFiClient client;
     HTTPClient http;
-
-    Serial.print("[HTTP] begin...\n");
     // configure traged server and url
     http.begin(client, Constants::URL); //HTTP
     http.addHeader("Content-Type", "application/json");
@@ -151,9 +151,7 @@ void sendPayloadToServer(){
       if (httpCode == HTTP_CODE_OK) {
         built_in.blink();
         const String& payload = http.getString();
-        Serial.println("received payload:\n<<");
         Serial.println(payload);
-        Serial.println(">>");
       }
     } else {
       Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
@@ -216,11 +214,11 @@ long getRandomTime() {
 void checkEnvironment() {
   SimpleMap<String, float> currentData = sensorAire.getData();
   float humidity = currentData.get(Constants::HUM_AIR);
-  AutoPilot autoLamp(lampara, horaLampON, horaLampOFF);
-  autoLamp.startAP();
-
+  
   if (humidity < aireSeco)   // DRY CONDITIONS
   {
+    Serial.println("DRY CONDITIONS");
+    autoVent.pause(true);
     extractor.off();
     intractor.off();
     ventilador.on();
@@ -228,6 +226,8 @@ void checkEnvironment() {
   }
   else if (humidity > aireHum)  //WET CONDITIONS
   {
+    Serial.println("WET CONDITIONS");
+    autoVent.pause(true);
     intractor.on();
     extractor.on();
     ventilador.on();
@@ -235,26 +235,38 @@ void checkEnvironment() {
   }
   else if ((humidity >= aireSeco) && (humidity < aireHum))    //NORMAL OPERATION
   {
+    Serial.println("NORMAL OPERATION");
+    autoVent.pause(false);
     extractor.on();
     intractor.off();
     //TODO implement notification
   }
 }
 
-void autoPilotVent(){
-  if (!isAPRunning) {
-      autoVent.setStart();
-      ventiON = getRandomTime();
-      ventiOFF = getRandomTime();
-      autoVent.setTime(ventiON, ventiOFF);
-      isAPRunning = true;
+void checkLamp() {
+  if (!autoLamp.isWorking()) { autoLamp.setRunning(true); }
+  autoLamp.startAP();
+}
+
+void autoPilotVent() {
+
+    if (!autoVent.isPaused()){
+
+      if (!autoVent.isWorking()) {
+
+            autoVent.setStart();
+            autoVent.setRunning(true);
+            ventiON = getRandomTime();
+            ventiOFF = getRandomTime();
+            autoVent.setTime(ventiON, ventiOFF);
+          }
+        autoVent.runForTime(callback);
     }
-    autoVent.runForTime(callback); 
 }
 
 void callback() {
   Serial.println("auto pilot cycle ended");
-  isAPRunning = false;
+  autoVent.setRunning(false);
 }
 
 void checkSoilWatering() {
@@ -272,8 +284,9 @@ void checkSoilWatering() {
 void setupTimerIntervals() {
   timer.setInterval(check_env, checkEnvironment);
   timer.setInterval(check_auto_pilot, autoPilotVent);
+  timer.setInterval(check_lamp, checkLamp);
   // timer.setInterval(check_water, checkSoilWatering);
-   timer.setInterval(send_payload, sendPayloadToServer);
+  timer.setInterval(send_payload, sendPayloadToServer);
   // timer.setInterval(check_settings, getSettings);
 }
 
