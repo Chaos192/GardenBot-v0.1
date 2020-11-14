@@ -2,45 +2,53 @@
 #include <ArduinoJson.h>
 #include "./utils/Constants.h"
 
-Dispositivo::Dispositivo(){}
-Dispositivo::Dispositivo(uint8_t pin, String nombre, int id) {
-    this -> _pin = pin;
-    this -> _estado = LOW;
-    this -> _nombre = nombre;
-    this -> _id = id;
+Dispositivo::Dispositivo() {}
+Dispositivo::Dispositivo(uint8_t pin, String nombre, int id)
+{
+    this->_pin = pin;
+    this->_estado = LOW;
+    this->_nombre = nombre;
+    this->_id = id;
     begin();
 }
 
-void Dispositivo::begin() {
+void Dispositivo::begin()
+{
     pinMode(_pin, OUTPUT);
     off();
 }
 
-void Dispositivo::off() {
+void Dispositivo::off()
+{
     digitalWrite(_pin, LOW);
     _estado = LOW;
 }
 
-void Dispositivo::on() {
+void Dispositivo::on()
+{
     digitalWrite(_pin, HIGH);
     _estado = HIGH;
 }
-void Dispositivo::blink() {
+void Dispositivo::blink()
+{
     on();
     delay(500);
     off();
 }
 
-String Dispositivo::nombre() {
+String Dispositivo::nombre()
+{
     return this->_nombre;
 }
 
-String Dispositivo::estado() {
+String Dispositivo::estado()
+{
     return this->_estado ? "ON" : "OFF";
 }
 
-int Dispositivo::id() {
-    return this -> _id;
+int Dispositivo::id()
+{
+    return this->_id;
 }
 
 /**
@@ -48,10 +56,11 @@ int Dispositivo::id() {
  * containing device data and
  * measurements*/
 
-DynamicJsonDocument Dispositivo::getJsonData() {
+DynamicJsonDocument Dispositivo::getJsonData()
+{
     StaticJsonDocument<512> json;
     json[Constants::DEVICE_ID] = _id;
     json[Constants::DEVICE_NAME] = _nombre;
     json[Constants::STATUS] = estado();
-    return json; 
+    return json;
 }

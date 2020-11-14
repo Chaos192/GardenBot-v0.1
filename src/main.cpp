@@ -8,7 +8,6 @@
 #include "./model/SensorAmbiente.h"
 #include "./utils/Constants.h"
 
-
 // WIFI setup
 #include <ESP8266WiFiMulti.h>
 #include <ESP8266HTTPClient.h>
@@ -27,13 +26,12 @@ ESP8266WiFiMulti WiFiMulti;
 #define aireHum 99
 #define horaLampON 10
 #define horaLampOFF 22
+
 // DHT11
 #include <DHT.h>
 #define DHTPIN D1
 #define DHTTYPE DHT11
 
-long ventiON;
-long ventiOFF;
 // Soil Moisture Sensor
 uint8_t sensorTierra = A0;
 uint8_t sensorTierraVcc = D2;
@@ -58,15 +56,16 @@ uint8_t pump = D4;
 // TIMER
 #include <SimpleTimer.h>
 SimpleTimer timer;
-const long utcOffset = -10800; 
+const long utcOffset = -10800;
 char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
 
-long send_payload = 1000  * 30;         //send payload to server every 30 minutes
-long check_env = 1000 * 15;            //check environment every 15 minutes
-long check_lamp = 60 *  1000;           //check lamp cycle every hour
-long check_auto_pilot = 1000  * 2;      //check auto pilot cycle every 2 minutes
-long check_water = 1000 * 60  * 3;      //check soil humidity every 3 hours
-long check_settings = 1000 * 60 * 24;  //ask server for settings every 24 hours
+// OPERATION GLOBALS
+long send_payload = 1000 * 30;        //send payload to server every 30 minutes
+long check_env = 1000 * 15;           //check environment every 15 minutes
+long check_lamp = 60 * 1000;          //check lamp cycle every hour
+long check_auto_pilot = 1000 * 2;     //check auto pilot cycle every 2 minutes
+long check_water = 1000 * 60 * 3;     //check soil humidity every 3 hours
+long check_settings = 1000 * 60 * 24; //ask server for settings every 24 hours
 
 WiFiUDP servidorReloj;
 NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
@@ -86,7 +85,7 @@ AutoPilot autoLamp(lampara, horaLampON, horaLampOFF);
 //FUNCTION PROTOTYPES
 void setupPeripherals();
 void setupWifi();
-void homeWelcome();                            
+void homeWelcome();
 void handleNotFound();
 void sendDhtPacket();
 void setupTimerIntervals();
@@ -101,36 +100,40 @@ void callback();
 String getSensorsDataAsJSON();
 String fechaYhora();
 
-void setup() {
+void setup()
+{
   // put your setup code here, to run once:
   Serial.begin(9600);
-  setupPeripherals();  
+  setupPeripherals();
   setupWifi();
   setupTimerIntervals();
+  // TODO get settings from server implementation
 }
 
 // WIFI SETUP
 
-void setupWifi() {
+void setupWifi()
+{
   WiFi.begin(Constants::SSID, Constants::PASS);
 
-  while (WiFi.status() != WL_CONNECTED) {
+  while (WiFi.status() != WL_CONNECTED)
+  {
     delay(500);
     Serial.print(".");
   }
   Serial.println("");
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
-
-
 }
 
 /**************************************
  * gets sensor data as JSON string and
  * sends to server via POST method
  * ************************************/
-void sendPayloadToServer(){
-    if ((WiFi.status() == WL_CONNECTED)) {
+void sendPayloadToServer()
+{
+  if ((WiFi.status() == WL_CONNECTED))
+  {
 
     WiFiClient client;
     HTTPClient http;
@@ -143,23 +146,26 @@ void sendPayloadToServer(){
     int httpCode = http.POST(data);
 
     // httpCode will be negative on error
-    if (httpCode > 0) {
+    if (httpCode > 0)
+    {
       // HTTP header has been send and Server response header has been handled
       Serial.printf("[HTTP] POST... code: %d\n", httpCode);
 
       // file found at server
-      if (httpCode == HTTP_CODE_OK) {
+      if (httpCode == HTTP_CODE_OK)
+      {
         built_in.blink();
-        const String& payload = http.getString();
+        const String &payload = http.getString();
         Serial.println(payload);
       }
-    } else {
+    }
+    else
+    {
       Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
     }
 
     http.end();
   }
-
 }
 
 /**
@@ -167,7 +173,8 @@ void sendPayloadToServer(){
  * as a json serialized string
  * */
 
-String getSensorsDataAsJSON() {
+String getSensorsDataAsJSON()
+{
   Serial.println("Getting all sensors data...");
   SimpleMap<String, float> map = sensorAire.getData();
   int soilHum = sensorMaceta.getDataSuelo();
@@ -185,7 +192,8 @@ String getSensorsDataAsJSON() {
 }
 
 // DEVICE INIT
-void setupPeripherals() {
+void setupPeripherals()
+{
   lampara.begin();
   ventilador.begin();
   intractor.begin();
@@ -199,7 +207,8 @@ void setupPeripherals() {
 /********************************************************************
  * SERVIDOR DE RELOJ
  *******************************************************************/
-String fechaYhora() {
+String fechaYhora()
+{
   String fechayhora = "";
   clienteReloj.update();
   fechayhora = diaSemana[clienteReloj.getDay()] + (String) ", " + clienteReloj.getFormattedTime();
@@ -207,15 +216,22 @@ String fechaYhora() {
   return fechayhora;
 }
 
-long getRandomTime() {
+long getRandomTime()
+{
   return (random(2, 15)) * 1000;
 }
 
-void checkEnvironment() {
+/***********************************************
+ * HUMIDITY CONTROL USING INLINE IN/OUT FANS AND
+ * OSCILLATING SIDE FAN
+************************************************/
+
+void checkEnvironment()
+{
   SimpleMap<String, float> currentData = sensorAire.getData();
   float humidity = currentData.get(Constants::HUM_AIR);
-  
-  if (humidity < aireSeco)   // DRY CONDITIONS
+
+  if (humidity < aireSeco) // DRY CONDITIONS
   {
     Serial.println("DRY CONDITIONS");
     autoVent.pause(true);
@@ -224,7 +240,7 @@ void checkEnvironment() {
     ventilador.on();
     //TODO implement notification
   }
-  else if (humidity > aireHum)  //WET CONDITIONS
+  else if (humidity > aireHum) //WET CONDITIONS
   {
     Serial.println("WET CONDITIONS");
     autoVent.pause(true);
@@ -233,7 +249,7 @@ void checkEnvironment() {
     ventilador.on();
     //TODO implement notification
   }
-  else if ((humidity >= aireSeco) && (humidity < aireHum))    //NORMAL OPERATION
+  else if ((humidity >= aireSeco) && (humidity < aireHum)) //NORMAL OPERATION
   {
     Serial.println("NORMAL OPERATION");
     autoVent.pause(false);
@@ -243,54 +259,74 @@ void checkEnvironment() {
   }
 }
 
-void checkLamp() {
-  if (!autoLamp.isWorking()) { autoLamp.setRunning(true); }
+void checkLamp()
+{
+  if (!autoLamp.isWorking())
+  {
+    autoLamp.setRunning(true);
+  }
   autoLamp.startAP();
 }
 
-void autoPilotVent() {
+/***********************************************************
+ * AUTOMATIC OPERATION OF OSCILLATING FAN
+ * UNDER NORMAL CONDITIONS AS DEFINED BY PARAMS
+************************************************************/
 
-    if (!autoVent.isPaused()){
+void autoPilotVent()
+{
 
-      if (!autoVent.isWorking()) {
+  if (!autoVent.isPaused())
+  {
 
-            autoVent.setStart();
-            autoVent.setRunning(true);
-            ventiON = getRandomTime();
-            ventiOFF = getRandomTime();
-            autoVent.setTime(ventiON, ventiOFF);
-          }
-        autoVent.runForTime(callback);
+    if (!autoVent.isWorking())
+    {
+
+      autoVent.setStart();
+      autoVent.setRunning(true);
+      long ventiON = getRandomTime();
+      long ventiOFF = getRandomTime();
+      autoVent.setTime(ventiON, ventiOFF);
     }
+    autoVent.runForTime(callback);
+  }
 }
 
-void callback() {
+void callback()
+{
   Serial.println("auto pilot cycle ended");
   autoVent.setRunning(false);
 }
 
-void checkSoilWatering() {
+void checkSoilWatering()
+{
   int soilHumdity = sensorMaceta.getDataSuelo();
-  if (soilHumdity <= tierraSeca) {
+  if (soilHumdity <= tierraSeca)
+  {
     //TODO implement START watering cycle and notification
-  } else {
+  }
+  else
+  {
     //TODO implement STOP watering cycle and notification
   }
 }
 
+/*****************************
+ * SimpleTimer Interval setup
+ *****************************/
 
-/**
- * SimpleTimer Interval setup*/
-void setupTimerIntervals() {
+void setupTimerIntervals()
+{
   timer.setInterval(check_env, checkEnvironment);
   timer.setInterval(check_auto_pilot, autoPilotVent);
   timer.setInterval(check_lamp, checkLamp);
   // timer.setInterval(check_water, checkSoilWatering);
-  timer.setInterval(send_payload, sendPayloadToServer);
+  // timer.setInterval(send_payload, sendPayloadToServer);
   // timer.setInterval(check_settings, getSettings);
 }
 
-void loop() {
+void loop()
+{
   // put your main code here, to run repeatedly:
   timer.run();
 }

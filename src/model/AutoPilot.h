@@ -27,7 +27,7 @@ public:
   void pause(bool);
   void setRunning(bool);
   void startAP();
-  void runForTime(void(*callback)());
+  void runForTime(void (*callback)());
   void setStart();
 };
 

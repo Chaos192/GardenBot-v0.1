@@ -19,8 +19,6 @@ const String Constants::MQTT_USERNAME = "manuelrg88@gmail.com";
 const String Constants::MQTT_KEY = "Mg412115";
 
 const String Constants::BASE_TOPIC = Constants::MQTT_USERNAME + "/gardenbot";
-const String Constants::NOTIFICATIONS = Constants::BASE_TOPIC +"/notifications";
-const String Constants::DEVICES = Constants::BASE_TOPIC +"/devices";
-const String Constants::ENVIRONMENT = Constants::BASE_TOPIC +"/notifications";
-
-
+const String Constants::NOTIFICATIONS = Constants::BASE_TOPIC + "/notifications";
+const String Constants::DEVICES = Constants::BASE_TOPIC + "/devices";
+const String Constants::ENVIRONMENT = Constants::BASE_TOPIC + "/notifications";
