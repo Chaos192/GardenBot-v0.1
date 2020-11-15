@@ -5,6 +5,7 @@
 class Constants
 {
 public:
+    //OPERATION PARAMS      
     static const String HUM_AIR;
     static const String HUM_SOIL;
     static const String TEMP;
@@ -15,18 +16,32 @@ public:
     static const String URL;
     static const String DATA;
 
+    // WIFI 
     static const String SSID;
     static const String PASS;
 
-    static const String MQTT_BROKER;
-    static const int MQTT_BROKER_PORT;
+    //MQTT
     static const String MQTT_USERNAME;
-    static const String MQTT_KEY;
-
     static const String BASE_TOPIC;
     static const String NOTIFICATIONS;
     static const String DEVICES;
+    static const String VENT;
+    static const String LAMP;
     static const String ENVIRONMENT;
+
+    //ORDER
+    static const String TYPE;
+    static const String MANUAL;
+    static const String SETTINGS;
+    static const String ORDER;
+    static const String ACTION;
+
+    static const String MIN_HUM;
+    static const String MAX_HUM;
+    static const String MIN_SOIL;
+    static const String MAX_SOIL;
+
+
 };
 
 #endif

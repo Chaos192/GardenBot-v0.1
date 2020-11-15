@@ -5,6 +5,7 @@
 #include <NTPClient.h>
 const long utcOffset = -10800;
 
+AutoPilot::AutoPilot(){}
 AutoPilot::AutoPilot(Dispositivo _disp, int _timeon, int _timeoff)
 {
   this->disp = _disp;
@@ -24,9 +25,9 @@ bool AutoPilot::isPaused() { return paused; }
 
 bool AutoPilot::isWorking() { return isRunning; }
 
-void AutoPilot::setRunning(bool start) { isRunning = start; }
+void AutoPilot::setRunning(bool start) { this->isRunning = start; }
 
-void AutoPilot::pause(bool pause) { paused = pause; }
+void AutoPilot::pause(bool pause) { this->paused = pause; }
 
 void AutoPilot::setTime(long _timeon, long _timeoff)
 {
@@ -98,14 +99,14 @@ void AutoPilot::runForTime(void (*callback)())
     if ((ahoraMillis - anteriorMillis < timeON))
     {
       disp.on();
-      Serial.println(disp.nombre() + " will be on for " + timeON);
+      Serial.println(disp.getNombre() + " will be on for " + timeON);
 
       //CYCLE OFF
     }
     else if ((ahoraMillis - anteriorMillis >= timeON) && (ahoraMillis - anteriorMillis < timeOFF))
     {
       disp.off();
-      Serial.println(disp.nombre() + " will be off for " + timeOFF);
+      Serial.println(disp.getNombre() + " will be off for " + timeOFF);
 
       //CYCLE END RESET AND CALLBACK
     }

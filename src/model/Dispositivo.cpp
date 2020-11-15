@@ -3,52 +3,57 @@
 #include "./utils/Constants.h"
 
 Dispositivo::Dispositivo() {}
-Dispositivo::Dispositivo(uint8_t pin, String nombre, int id)
+Dispositivo::Dispositivo(uint8_t _pin, String _nombre, int _id)
 {
-    this->_pin = pin;
-    this->_estado = LOW;
-    this->_nombre = nombre;
-    this->_id = id;
+    this->pin = _pin;
+    this->estado = LOW;
+    this->nombre = _nombre;
+    this->id = _id;
     begin();
 }
 
 void Dispositivo::begin()
 {
-    pinMode(_pin, OUTPUT);
+    pinMode(pin, OUTPUT);
     off();
 }
 
 void Dispositivo::off()
 {
-    digitalWrite(_pin, LOW);
-    _estado = LOW;
+    digitalWrite(pin, LOW);
+    estado = LOW;
 }
 
 void Dispositivo::on()
 {
-    digitalWrite(_pin, HIGH);
-    _estado = HIGH;
+    digitalWrite(pin, HIGH);
+    estado = HIGH;
 }
 void Dispositivo::blink()
 {
     on();
-    delay(500);
+    delay(300);
     off();
+    delay(300);
+    on();
+    delay(300);
+    off();
+    
 }
 
-String Dispositivo::nombre()
+String Dispositivo::getNombre()
 {
-    return this->_nombre;
+    return this->nombre;
 }
 
-String Dispositivo::estado()
+String Dispositivo::getEstado()
 {
-    return this->_estado ? "ON" : "OFF";
+    return this->estado ? "ON" : "OFF";
 }
 
-int Dispositivo::id()
+int Dispositivo::getId()
 {
-    return this->_id;
+    return this->id;
 }
 
 /**
@@ -59,8 +64,23 @@ int Dispositivo::id()
 DynamicJsonDocument Dispositivo::getJsonData()
 {
     StaticJsonDocument<512> json;
-    json[Constants::DEVICE_ID] = _id;
-    json[Constants::DEVICE_NAME] = _nombre;
-    json[Constants::STATUS] = estado();
+    json[Constants::DEVICE_ID] = getId();
+    json[Constants::DEVICE_NAME] = getNombre();
+    json[Constants::STATUS] = getEstado();
     return json;
+}
+
+/**
+ * receives MQTT order from server and 
+ * acts accordingly 
+ * */   
+
+void Dispositivo::receiveOrder(String message) {
+    if (message.equalsIgnoreCase("on")) {
+        on();
+    } else if (message.equalsIgnoreCase("blink")) {
+        blink();
+    } else {
+        off();
+    }
 }

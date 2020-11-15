@@ -5,6 +5,8 @@
 #include <ArduinoJson.h>
 
 
+SensorAmbiente::SensorAmbiente(){}
+
 SensorAmbiente::SensorAmbiente(uint8_t pin, uint8_t type, int id, String nombre): sensor(pin, type) {
     this ->_nombre = nombre;
     this ->_id = id;

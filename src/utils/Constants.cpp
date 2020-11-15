@@ -13,12 +13,22 @@ const String Constants::DATA = "data";
 const String Constants::SSID = "FUMANCHU";
 const String Constants::PASS = "heyholetsgo";
 
-const String Constants::MQTT_BROKER = "maqiatto.com";
-const int Constants::MQTT_BROKER_PORT = 1883;
-const String Constants::MQTT_USERNAME = "manuelrg88@gmail.com";
-const String Constants::MQTT_KEY = "Mg412115";
 
+const String Constants::MQTT_USERNAME = "manuelrg88@gmail.com";
 const String Constants::BASE_TOPIC = Constants::MQTT_USERNAME + "/gardenbot";
 const String Constants::NOTIFICATIONS = Constants::BASE_TOPIC + "/notifications";
 const String Constants::DEVICES = Constants::BASE_TOPIC + "/devices";
-const String Constants::ENVIRONMENT = Constants::BASE_TOPIC + "/notifications";
+const String Constants::VENT = Constants::DEVICES + "/vent";
+const String Constants::LAMP = Constants::DEVICES + "/lamp";
+const String Constants::ENVIRONMENT = Constants::BASE_TOPIC + "/environment";
+
+const String Constants::TYPE = "type";
+const String Constants::MANUAL = "manual";
+const String Constants::SETTINGS = "settings";
+const String Constants::ORDER = "order";
+const String Constants::ACTION = "action";
+
+const String Constants::MIN_HUM = "min_hum";
+const String Constants::MAX_HUM = "max_hum";
+const String Constants::MIN_SOIL = "min_soil";
+const String Constants::MAX_SOIL = "max_soil";

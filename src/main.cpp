@@ -6,7 +6,9 @@
 #include "./model/AutoPilot.h"
 #include "./model/SensorTierra.h"
 #include "./model/SensorAmbiente.h"
+#include "./model/EnvironmentControl.h"
 #include "./utils/Constants.h"
+#include "./utils/MQTTConnector.h"
 
 // WIFI setup
 #include <ESP8266WiFiMulti.h>
@@ -15,6 +17,7 @@
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 
+
 ESP8266WiFiMulti WiFiMulti;
 
 //DEFAULT SETTINGS
@@ -22,7 +25,7 @@ ESP8266WiFiMulti WiFiMulti;
 #define tierraHum 75
 #define tempAlta 26
 #define tempBaja 22
-#define aireSeco 85
+#define aireSeco 70
 #define aireHum 99
 #define horaLampON 10
 #define horaLampOFF 22
@@ -81,9 +84,11 @@ Dispositivo waterPump = Dispositivo(pump, "Bomba de agua", PUMP_ID);
 Dispositivo built_in = Dispositivo(builtin, "built-in LED", 99);
 AutoPilot autoVent(ventilador);
 AutoPilot autoLamp(lampara, horaLampON, horaLampOFF);
+EnvironmentControl control(sensorAire, ventilador, intractor, extractor, autoVent);
 
 //FUNCTION PROTOTYPES
 void setupPeripherals();
+void setDefaultSettings();
 void setupWifi();
 void homeWelcome();
 void handleNotFound();
@@ -97,18 +102,10 @@ void getSettings();
 long getRandomTime();
 void autoPilotVent();
 void callback();
+void mqttCallback(char*, byte*, unsigned int);
+void decodeMQTTPayload(char[]);
 String getSensorsDataAsJSON();
 String fechaYhora();
-
-void setup()
-{
-  // put your setup code here, to run once:
-  Serial.begin(9600);
-  setupPeripherals();
-  setupWifi();
-  setupTimerIntervals();
-  // TODO get settings from server implementation
-}
 
 // WIFI SETUP
 
@@ -141,7 +138,10 @@ void sendPayloadToServer()
     http.begin(client, Constants::URL); //HTTP
     http.addHeader("Content-Type", "application/json");
     String data = getSensorsDataAsJSON();
-    Serial.print("[HTTP] POST...\n" + data);
+    Serial.println("[HTTP] POST...\n" + data);
+    if (MQTTPublish(Constants::ENVIRONMENT, data)) {
+      Serial.printf("MQTTPublish was succeeded.\n");
+    }
     // start connection and send HTTP header and body
     int httpCode = http.POST(data);
 
@@ -202,6 +202,8 @@ void setupPeripherals()
   sensorMaceta.begin();
   waterPump.begin();
   built_in.begin();
+  control.start();
+  control.setParams(aireSeco, aireHum);  //set default parameters
 }
 
 /********************************************************************
@@ -228,34 +230,10 @@ long getRandomTime()
 
 void checkEnvironment()
 {
-  SimpleMap<String, float> currentData = sensorAire.getData();
-  float humidity = currentData.get(Constants::HUM_AIR);
-
-  if (humidity < aireSeco) // DRY CONDITIONS
-  {
-    Serial.println("DRY CONDITIONS");
-    autoVent.pause(true);
-    extractor.off();
-    intractor.off();
-    ventilador.on();
-    //TODO implement notification
-  }
-  else if (humidity > aireHum) //WET CONDITIONS
-  {
-    Serial.println("WET CONDITIONS");
-    autoVent.pause(true);
-    intractor.on();
-    extractor.on();
-    ventilador.on();
-    //TODO implement notification
-  }
-  else if ((humidity >= aireSeco) && (humidity < aireHum)) //NORMAL OPERATION
-  {
-    Serial.println("NORMAL OPERATION");
-    autoVent.pause(false);
-    extractor.on();
-    intractor.off();
-    //TODO implement notification
+  if(control.isWorking() && !control.isPaused()) {
+    String notification = control.checkEnvironment();
+    Serial.println(notification);
+    //TODO send notification to server
   }
 }
 
@@ -298,6 +276,59 @@ void callback()
   autoVent.setRunning(false);
 }
 
+void mqttCallback(char* topic, byte* payload, unsigned int length) {
+  if (length > 0) {
+    char payloadStr[length + 1];
+    memset(payloadStr, 0, length + 1);
+    strncpy(payloadStr, (char*)payload, length);
+    Serial.printf("Data    : dataCallback. Topic : [%s]\n", topic);
+    Serial.printf("Data    : dataCallback. Payload : %s\n", payloadStr);
+    decodeMQTTPayload(payloadStr);
+  }
+}
+
+void decodeMQTTPayload(char payload[]) {
+  Serial.println("payload: " + (String) payload);
+  //TODO deserialize payload and route accordingly
+  //payload may be real time command
+  //or auto pilot settings update 
+
+  const size_t capacity = JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + 80;
+
+  DynamicJsonDocument doc(capacity);
+  deserializeJson(doc, payload);
+  const char* type = doc[Constants::TYPE]; // "settings" or "manual"
+  String typeStr = String(type);
+  JsonObject order = doc[Constants::ORDER];
+
+  if(typeStr.equalsIgnoreCase(Constants::MANUAL)) {
+
+    int device_id= order[Constants::DEVICE_ID];
+    String action = order[Constants::ACTION];
+
+    switch(device_id) {
+      
+      case 0: lampara.receiveOrder(action); break;
+      
+      case 1: ventilador.receiveOrder(action); break;
+
+      case 2: intractor.receiveOrder(action); break;
+
+      case 3: extractor.receiveOrder(action); break;
+
+      default: Serial.println("ID no permitida o desconocida");
+    }
+
+  } else if (typeStr.equalsIgnoreCase(Constants::SETTINGS)) {
+
+      int minHum = order[Constants::MIN_HUM];
+      int maxHum = order[Constants::MAX_HUM];
+      String notification = control.setParams(minHum, maxHum);
+      Serial.println(notification);
+      //TODO send notification to server
+  }
+}
+
 void checkSoilWatering()
 {
   int soilHumdity = sensorMaceta.getDataSuelo();
@@ -325,8 +356,23 @@ void setupTimerIntervals()
   // timer.setInterval(check_settings, getSettings);
 }
 
+/***************************************************************************************************************
+ ***************************************************************************************************************/
+
+void setup()
+{
+  Serial.begin(9600);
+  setupPeripherals();
+  setupWifi();
+  setupTimerIntervals();
+  MQTTBegin();
+  MQTTSetCallback(mqttCallback);
+  // TODO get settings from server implementation
+}
+
 void loop()
 {
-  // put your main code here, to run repeatedly:
   timer.run();
+  MQTTLoop();
+  MQTTSubscribe();
 }

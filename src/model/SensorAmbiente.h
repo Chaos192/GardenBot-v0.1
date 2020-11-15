@@ -24,6 +24,7 @@ private:
 
 
 public:
+    SensorAmbiente();
     SensorAmbiente(uint8_t pin, uint8_t type, int _id, String _nombre);
     SimpleMap<String, float> getData();
     void begin();

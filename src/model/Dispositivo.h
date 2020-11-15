@@ -8,10 +8,10 @@ class Dispositivo
 {
 
 private:
-  int _id;
-  String _nombre;
-  uint8_t _pin;
-  bool _estado;
+  int id;
+  String nombre;
+  uint8_t pin;
+  bool estado;
 
 public:
   Dispositivo();
@@ -20,9 +20,10 @@ public:
   void off();
   void begin();
   void blink();
-  String estado();
-  String nombre();
-  int id();
+  void receiveOrder(String);
+  String getEstado();
+  String getNombre();
+  int getId();
   DynamicJsonDocument getJsonData();
 
 };

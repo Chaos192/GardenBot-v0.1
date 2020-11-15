@@ -18,6 +18,7 @@ private:
   unsigned long anteriorMillis;
 
 public:
+  AutoPilot();
   AutoPilot(Dispositivo _disp, int _timeon, int _timeoff);
   AutoPilot(Dispositivo _disp);
   void setTime(long _timeon, long _timeoff);

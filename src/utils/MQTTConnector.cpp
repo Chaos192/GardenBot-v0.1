@@ -15,16 +15,6 @@ PubSubClient mqtt(wifiClient);
 boolean mqttInitCompleted = false;
 String clientId = "gardenBot" + String(ESP.getChipId());
 
-/* Incoming data callback. */
-void dataCallback(char* topic, byte* payload, unsigned int length)
-{
-  char payloadStr[length + 1];
-  memset(payloadStr, 0, length + 1);
-  strncpy(payloadStr, (char*)payload, length);
-  Serial.printf("Data    : dataCallback. Topic : [%s]\n", topic);
-  Serial.printf("Data    : dataCallback. Payload : %s\n", payloadStr);
-}
-
 void performConnect()
 {
   uint16_t connectionDelay = 5000;
@@ -36,7 +26,7 @@ void performConnect()
       Serial.printf("Trace   : Connected to Broker.\n");
 
       /* Subscription to your topic after connection was succeeded.*/
-      MQTTSubscribe(BASE_TOPIC);
+      MQTTSubscribe();
     }
     else
     {
@@ -47,22 +37,24 @@ void performConnect()
   }
 }
 
-boolean MQTTPublish(const char* topic, char* payload)
+boolean MQTTPublish(String topic, String payload)
 {
+  char * payload_char = new char[payload.length() + 1];
+  strcpy(payload_char, payload.c_str());
   boolean retval = false;
   if (mqtt.connected())
   {
-    retval = mqtt.publish(topic, payload);
+    retval = mqtt.publish(topic.c_str(), payload_char);
   }
   return retval;
 }
 
-boolean MQTTSubscribe(const char* topicToSubscribe)
+boolean MQTTSubscribe()
 {
   boolean retval = false;
   if (mqtt.connected())
   {
-    retval = mqtt.subscribe(topicToSubscribe);
+    retval = mqtt.subscribe(Constants::DEVICES.c_str());
   }
   return retval;
 }
@@ -75,8 +67,11 @@ boolean MQTTIsConnected()
 void MQTTBegin()
 {
   mqtt.setServer(MQTT_BROKER, MQTT_BROKER_PORT);
-  mqtt.setCallback(dataCallback);
   mqttInitCompleted = true;
+}
+
+void MQTTSetCallback(void (*callback)(char* topic, byte* payload, unsigned int length)) {
+  mqtt.setCallback(*callback);
 }
 
 void MQTTLoop()
