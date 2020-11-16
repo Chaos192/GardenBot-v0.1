@@ -12,6 +12,7 @@ private:
   long timeOFF;
   int horaON;
   int horaOFF;
+  String mode;
   Dispositivo disp;
   bool isRunning;
   bool paused;
@@ -30,6 +31,8 @@ public:
   void startAP();
   void runForTime(void (*callback)());
   void setStart();
+  String setMode(String _mode);
+  String getMode();
 };
 
 #endif

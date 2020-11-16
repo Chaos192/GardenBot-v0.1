@@ -45,13 +45,16 @@ bool EnvironmentControl::isWorking() { return isRunning; }
 String EnvironmentControl::setParams(int _minHum, int _maxHum) {
     this->minHum = _minHum;
     this->maxHum = _maxHum;
-    return "success";
+    return "Updated humidity parameters successfully";
 }
 
 String EnvironmentControl::checkEnvironment() {
 
     SimpleMap<String, float> currentData = sensor.getData();
-    float humidity = currentData.get(Constants::HUM_AIR);
+    int humidity = round(currentData.get(Constants::HUM_AIR));
+    Serial.println("HUM " + (String) humidity);
+    Serial.println("MAX HUM " + (String) minHum);
+    Serial.println("MIN HUM " + (String) maxHum);
 
     if (humidity < minHum) // DRY CONDITIONS
     {
@@ -71,12 +74,12 @@ String EnvironmentControl::checkEnvironment() {
         vent.on();
         return "Humedad ambiental alta, intentando bajar...";
     }
-    else if ((humidity >= maxHum) && (humidity < maxHum)) //NORMAL OPERATION
+    else  //NORMAL OPERATION
     {
         Serial.println("NORMAL OPERATION");
         pilot.pause(false);
         extr.on();
         intr.off();  
     }
-    return "Humedad ambiental dentro de parametros normales, intentando subir...";
+    return "Humedad ambiental dentro de parametros normales, activando piloto automatico...";
 }

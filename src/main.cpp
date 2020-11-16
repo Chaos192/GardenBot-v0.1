@@ -17,7 +17,6 @@
 #include <WiFiUdp.h>
 #include <NTPClient.h>
 
-
 ESP8266WiFiMulti WiFiMulti;
 
 //DEFAULT SETTINGS
@@ -63,10 +62,10 @@ const long utcOffset = -10800;
 char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
 
 // OPERATION GLOBALS
-long send_payload = 1000 * 30;        //send payload to server every 30 minutes
-long check_env = 1000 * 15;           //check environment every 15 minutes
-long check_lamp = 60 * 1000;          //check lamp cycle every hour
-long check_auto_pilot = 1000 * 2;     //check auto pilot cycle every 2 minutes
+long send_payload = 1000 * 60 * 30;        //send payload to server every 30 minutes
+long check_env = 1000 * 10 * 60;           //check environment every 10 minutes
+long check_lamp = 60 * 1000 * 5;          //check lamp cycle every 5 minutes
+long check_auto_pilot = 1000 * 2 * 60;     //check auto pilot cycle every 2 minutes
 long check_water = 1000 * 60 * 3;     //check soil humidity every 3 hours
 long check_settings = 1000 * 60 * 24; //ask server for settings every 24 hours
 
@@ -102,7 +101,7 @@ void getSettings();
 long getRandomTime();
 void autoPilotVent();
 void callback();
-void mqttCallback(char*, byte*, unsigned int);
+void mqttCallback(char *, byte *, unsigned int);
 void decodeMQTTPayload(char[]);
 String getSensorsDataAsJSON();
 String fechaYhora();
@@ -139,7 +138,8 @@ void sendPayloadToServer()
     http.addHeader("Content-Type", "application/json");
     String data = getSensorsDataAsJSON();
     Serial.println("[HTTP] POST...\n" + data);
-    if (MQTTPublish(Constants::ENVIRONMENT, data)) {
+    if (MQTTPublish(Constants::ENVIRONMENT, data))
+    {
       Serial.printf("MQTTPublish was succeeded.\n");
     }
     // start connection and send HTTP header and body
@@ -194,6 +194,7 @@ String getSensorsDataAsJSON()
 // DEVICE INIT
 void setupPeripherals()
 {
+  clienteReloj.update();
   lampara.begin();
   ventilador.begin();
   intractor.begin();
@@ -202,8 +203,11 @@ void setupPeripherals()
   sensorMaceta.begin();
   waterPump.begin();
   built_in.begin();
+  
   control.start();
-  control.setParams(aireSeco, aireHum);  //set default parameters
+  control.setParams(aireSeco, aireHum); //set default parameters
+  Serial.println(autoVent.setMode(Constants::MODE_AUTO));
+  Serial.println(autoLamp.setMode(Constants::MODE_AUTO));
 }
 
 /********************************************************************
@@ -220,7 +224,7 @@ String fechaYhora()
 
 long getRandomTime()
 {
-  return (random(2, 15)) * 1000;
+  return (random(2, 15)) * 1000 * 60;
 }
 
 /***********************************************
@@ -230,7 +234,8 @@ long getRandomTime()
 
 void checkEnvironment()
 {
-  if(control.isWorking() && !control.isPaused()) {
+  if (control.isWorking() && !control.isPaused())
+  {
     String notification = control.checkEnvironment();
     Serial.println(notification);
     //TODO send notification to server
@@ -238,7 +243,8 @@ void checkEnvironment()
 }
 
 void checkLamp()
-{
+{ 
+  clienteReloj.update();
   if (!autoLamp.isWorking())
   {
     autoLamp.setRunning(true);
@@ -262,9 +268,12 @@ void autoPilotVent()
 
       autoVent.setStart();
       autoVent.setRunning(true);
-      long ventiON = getRandomTime();
-      long ventiOFF = getRandomTime();
-      autoVent.setTime(ventiON, ventiOFF);
+      if (autoVent.getMode().equalsIgnoreCase(Constants::MODE_AUTO))
+      {
+        long ventiON = getRandomTime();
+        long ventiOFF = getRandomTime();
+        autoVent.setTime(ventiON, ventiOFF);
+      }
     }
     autoVent.runForTime(callback);
   }
@@ -276,56 +285,110 @@ void callback()
   autoVent.setRunning(false);
 }
 
-void mqttCallback(char* topic, byte* payload, unsigned int length) {
-  if (length > 0) {
+void mqttCallback(char *topic, byte *payload, unsigned int length)
+{
+  if (length > 0)
+  {
     char payloadStr[length + 1];
     memset(payloadStr, 0, length + 1);
-    strncpy(payloadStr, (char*)payload, length);
-    Serial.printf("Data    : dataCallback. Topic : [%s]\n", topic);
-    Serial.printf("Data    : dataCallback. Payload : %s\n", payloadStr);
+    strncpy(payloadStr, (char *)payload, length);
+
     decodeMQTTPayload(payloadStr);
   }
 }
 
-void decodeMQTTPayload(char payload[]) {
-  Serial.println("payload: " + (String) payload);
+void decodeMQTTPayload(char payload[])
+{
+  Serial.println("payload received: " + (String)payload);
   //TODO deserialize payload and route accordingly
   //payload may be real time command
-  //or auto pilot settings update 
+  //or auto pilot settings update
 
-  const size_t capacity = JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(4) + 80;
+  const size_t capacity = JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 110;
 
   DynamicJsonDocument doc(capacity);
   deserializeJson(doc, payload);
-  const char* type = doc[Constants::TYPE]; // "settings" or "manual"
+  const char *type = doc[Constants::TYPE]; // "settings" or "manual"
   String typeStr = String(type);
   JsonObject order = doc[Constants::ORDER];
 
-  if(typeStr.equalsIgnoreCase(Constants::MANUAL)) {
+  if (typeStr.equalsIgnoreCase(Constants::MANUAL))
+  {
 
-    int device_id= order[Constants::DEVICE_ID];
+    int device_id = order[Constants::DEVICE_ID];
     String action = order[Constants::ACTION];
 
-    switch(device_id) {
-      
-      case 0: lampara.receiveOrder(action); break;
-      
-      case 1: ventilador.receiveOrder(action); break;
+    switch (device_id)
+    {
 
-      case 2: intractor.receiveOrder(action); break;
+    case 0:
+      lampara.receiveOrder(action);
+      break;
 
-      case 3: extractor.receiveOrder(action); break;
+    case 1:
+      ventilador.receiveOrder(action);
+      break;
 
-      default: Serial.println("ID no permitida o desconocida");
+    case 2:
+      intractor.receiveOrder(action);
+      break;
+
+    case 3:
+      extractor.receiveOrder(action);
+      break;
+
+    default:
+      Serial.println("ID no permitida o desconocida");
     }
+  }
 
-  } else if (typeStr.equalsIgnoreCase(Constants::SETTINGS)) {
+  else if (typeStr.equalsIgnoreCase(Constants::SETTINGS))
+  {
 
-      int minHum = order[Constants::MIN_HUM];
-      int maxHum = order[Constants::MAX_HUM];
+    String autoPilotMode = order[Constants::AUTO_PILOT_MODE];
+    int minHum = order[Constants::MIN_HUM];
+    int maxHum = order[Constants::MAX_HUM];
+    int minSoil = order[Constants::MIN_SOIL];
+    int maxSoil = order[Constants::MAX_SOIL];
+    int hourOn = order[Constants::HOUR_ON];
+    int hourOff = order[Constants::HOUR_OFF];
+    int cycleOn = order[Constants::CYCLE_ON];
+    int cycleOff = order[Constants::CYCLE_OFF];
+
+    if (minHum && maxHum)
+    {
       String notification = control.setParams(minHum, maxHum);
       Serial.println(notification);
+      Serial.println(control.checkEnvironment());
       //TODO send notification to server
+    }
+
+    if (minSoil && maxSoil)
+    {
+      //TODO update watering cycle params
+      Serial.println("watering cycle params updated");
+    }
+
+    if (autoPilotMode)
+    {
+      Serial.println(autoVent.setMode(autoPilotMode));
+    }
+
+    if (cycleOn && cycleOff)
+    {
+      cycleOn = cycleOn * 1000 * 60;            //convert to minutes
+      cycleOff = cycleOff * 1000 * 60;
+      autoVent.setTime(cycleOn, cycleOff);
+    }
+
+    if (hourOn && hourOff)
+    {
+      autoLamp.setHours(hourOn, hourOff);
+      Serial.println(autoLamp.setMode(Constants::MODE_AUTO));
+      autoLamp.setRunning(true);
+      autoLamp.pause(false);
+      checkLamp();
+    }
   }
 }
 
@@ -352,7 +415,7 @@ void setupTimerIntervals()
   timer.setInterval(check_auto_pilot, autoPilotVent);
   timer.setInterval(check_lamp, checkLamp);
   // timer.setInterval(check_water, checkSoilWatering);
-  // timer.setInterval(send_payload, sendPayloadToServer);
+  timer.setInterval(send_payload, sendPayloadToServer);
   // timer.setInterval(check_settings, getSettings);
 }
 
@@ -367,6 +430,9 @@ void setup()
   setupTimerIntervals();
   MQTTBegin();
   MQTTSetCallback(mqttCallback);
+  checkEnvironment();
+  autoPilotVent();
+  checkLamp();
   // TODO get settings from server implementation
 }
 

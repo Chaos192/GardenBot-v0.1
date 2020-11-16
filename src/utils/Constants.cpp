@@ -9,10 +9,12 @@ const String Constants::TIMESTAMP = "timestamp";
 const String Constants::STATUS = "status";
 const String Constants::URL = "http://charr0max.pythonanywhere.com/measures";
 const String Constants::DATA = "data";
+const String Constants::AUTO_PILOT_MODE = "auto_pilot_mode";
+const String Constants::MODE_AUTO = "auto";
+const String Constants::MODE_MANUAL = "manual";
 
 const String Constants::SSID = "FUMANCHU";
 const String Constants::PASS = "heyholetsgo";
-
 
 const String Constants::MQTT_USERNAME = "manuelrg88@gmail.com";
 const String Constants::BASE_TOPIC = Constants::MQTT_USERNAME + "/gardenbot";
@@ -32,3 +34,7 @@ const String Constants::MIN_HUM = "min_hum";
 const String Constants::MAX_HUM = "max_hum";
 const String Constants::MIN_SOIL = "min_soil";
 const String Constants::MAX_SOIL = "max_soil";
+const String Constants::HOUR_ON = "hour_on";
+const String Constants::HOUR_OFF = "hour_off";
+const String Constants::CYCLE_ON = "cycle_on";
+const String Constants::CYCLE_OFF = "cycle_off";

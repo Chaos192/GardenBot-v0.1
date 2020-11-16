@@ -5,7 +5,7 @@
 #include <NTPClient.h>
 const long utcOffset = -10800;
 
-AutoPilot::AutoPilot(){}
+AutoPilot::AutoPilot() {}
 AutoPilot::AutoPilot(Dispositivo _disp, int _timeon, int _timeoff)
 {
   this->disp = _disp;
@@ -39,6 +39,21 @@ void AutoPilot::setHours(int _hourON, int _hourOFF)
 {
   this->horaON = _hourON;
   this->horaOFF = _hourOFF;
+}
+
+/**
+ * sets auto pilot working mode
+ * @param _mode: String "manual" or "auto"
+ * **************************************/
+String AutoPilot::setMode(String _mode)
+{
+  this->mode = _mode;
+  return disp.getNombre() + " ->Autopilot mode updated " + (String) mode;
+}
+
+String AutoPilot::getMode()
+{
+  return mode;
 }
 
 void AutoPilot::setStart()
@@ -84,7 +99,7 @@ void AutoPilot::startAP()
         disp.on();
       }
     }
-    Serial.println("hora actual" + horaActual);
+    Serial.println("hora actual " + (String)horaActual);
   }
 }
 
@@ -99,14 +114,14 @@ void AutoPilot::runForTime(void (*callback)())
     if ((ahoraMillis - anteriorMillis < timeON))
     {
       disp.on();
-      Serial.println(disp.getNombre() + " will be on for " + timeON);
+      Serial.println(disp.getNombre() + " will be on for " + timeON / 1000 / 60 + " minutes");
 
       //CYCLE OFF
     }
     else if ((ahoraMillis - anteriorMillis >= timeON) && (ahoraMillis - anteriorMillis < timeOFF))
     {
       disp.off();
-      Serial.println(disp.getNombre() + " will be off for " + timeOFF);
+      Serial.println(disp.getNombre() + " will be off for " + timeOFF / 1000 / 60 + " minutes");
 
       //CYCLE END RESET AND CALLBACK
     }

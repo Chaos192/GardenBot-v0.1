@@ -15,6 +15,9 @@ public:
     static const String STATUS;
     static const String URL;
     static const String DATA;
+    static const String AUTO_PILOT_MODE;
+    static const String MODE_AUTO;
+    static const String MODE_MANUAL;
 
     // WIFI 
     static const String SSID;
@@ -40,6 +43,10 @@ public:
     static const String MAX_HUM;
     static const String MIN_SOIL;
     static const String MAX_SOIL;
+    static const String HOUR_ON;
+    static const String HOUR_OFF;
+    static const String CYCLE_ON;
+    static const String CYCLE_OFF;
 
 
 };
