@@ -48,6 +48,13 @@ public:
     static const String CYCLE_ON;
     static const String CYCLE_OFF;
 
+    //NOTIFICATION
+
+    static const String NOT_ID;
+    static const String NOT_MSG;
+    static const String CODE_ENV;
+    static const String CODE_DEV;
+
 
 };
 

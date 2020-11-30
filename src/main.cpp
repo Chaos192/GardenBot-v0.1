@@ -103,6 +103,7 @@ void autoPilotVent();
 void callback();
 void mqttCallback(char *, byte *, unsigned int);
 void decodeMQTTPayload(char[]);
+void publishMQTTPayload(int, String);
 String getSensorsDataAsJSON();
 String fechaYhora();
 
@@ -171,7 +172,7 @@ void sendPayloadToServer()
 /**
  * @returns JsonDocument containing all sensor data
  * as a json serialized string
- * */
+ * ************************************************/
 
 String getSensorsDataAsJSON()
 {
@@ -181,7 +182,7 @@ String getSensorsDataAsJSON()
 
   const size_t capacity = JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(5);
   DynamicJsonDocument doc(capacity);
-  JsonObject data = doc.createNestedObject("data");
+  JsonObject data = doc.createNestedObject(Constants::DATA);
   data[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
   data[Constants::TEMP] = map.get(Constants::TEMP);
   data[Constants::HUM_SOIL] = soilHum;
@@ -238,7 +239,6 @@ void checkEnvironment()
   {
     String notification = control.checkEnvironment();
     Serial.println(notification);
-    //TODO send notification to server
   }
 }
 
@@ -297,13 +297,18 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
   }
 }
 
+void publishMQTTPayload(String code, String payload) {
+  const size_t capacity = JSON_OBJECT_SIZE(2) + 60;
+  DynamicJsonDocument doc(capacity);
+  doc[Constants::NOT_ID] = code;
+  doc[Constants::NOT_MSG] = payload;
+  String buffer;
+  serializeJson(doc, buffer);
+  MQTTPublish(Constants::NOTIFICATIONS, buffer);
+}
+
 void decodeMQTTPayload(char payload[])
 {
-  Serial.println("payload received: " + (String)payload);
-  //TODO deserialize payload and route accordingly
-  //payload may be real time command
-  //or auto pilot settings update
-
   const size_t capacity = JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 110;
 
   DynamicJsonDocument doc(capacity);
@@ -350,6 +355,8 @@ void decodeMQTTPayload(char payload[])
     int maxHum = order[Constants::MAX_HUM];
     int minSoil = order[Constants::MIN_SOIL];
     int maxSoil = order[Constants::MAX_SOIL];
+    // int minTemp = order["min_temp"];  unused for the moment but kept for consistency
+    // int maxTemp = order["max_temp"];
     int hourOn = order[Constants::HOUR_ON];
     int hourOff = order[Constants::HOUR_OFF];
     int cycleOn = order[Constants::CYCLE_ON];
@@ -358,20 +365,20 @@ void decodeMQTTPayload(char payload[])
     if (minHum && maxHum)
     {
       String notification = control.setParams(minHum, maxHum);
-      Serial.println(notification);
+      publishMQTTPayload(Constants::CODE_ENV, notification);
       Serial.println(control.checkEnvironment());
-      //TODO send notification to server
     }
 
     if (minSoil && maxSoil)
     {
       //TODO update watering cycle params
       Serial.println("watering cycle params updated");
+      publishMQTTPayload(Constants::CODE_ENV, "watering cycle params updated");
     }
 
     if (autoPilotMode)
     {
-      Serial.println(autoVent.setMode(autoPilotMode));
+      publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
     }
 
     if (cycleOn && cycleOff)
@@ -379,11 +386,13 @@ void decodeMQTTPayload(char payload[])
       cycleOn = cycleOn * 1000 * 60;            //convert to minutes
       cycleOff = cycleOff * 1000 * 60;
       autoVent.setTime(cycleOn, cycleOff);
+      publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
+
     }
 
     if (hourOn && hourOff)
     {
-      autoLamp.setHours(hourOn, hourOff);
+      publishMQTTPayload(Constants::CODE_DEV, autoLamp.setHours(hourOn, hourOff));
       Serial.println(autoLamp.setMode(Constants::MODE_AUTO));
       autoLamp.setRunning(true);
       autoLamp.pause(false);
@@ -397,7 +406,10 @@ void checkSoilWatering()
   int soilHumdity = sensorMaceta.getDataSuelo();
   if (soilHumdity <= tierraSeca)
   {
+    publishMQTTPayload(Constants::CODE_ENV, "Comenzando ciclo de regado...");
     //TODO implement START watering cycle and notification
+    delay(1000l);
+    publishMQTTPayload(Constants::CODE_ENV, "Ciclo de regalo finalizado");
   }
   else
   {
@@ -441,4 +453,4 @@ void loop()
   timer.run();
   MQTTLoop();
   MQTTSubscribe();
-}
+} 

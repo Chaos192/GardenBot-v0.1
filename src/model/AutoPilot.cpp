@@ -29,16 +29,19 @@ void AutoPilot::setRunning(bool start) { this->isRunning = start; }
 
 void AutoPilot::pause(bool pause) { this->paused = pause; }
 
-void AutoPilot::setTime(long _timeon, long _timeoff)
+String AutoPilot::setTime(long _timeon, long _timeoff)
 {
   this->timeON = _timeon;
   this->timeOFF = _timeoff;
+  return disp.getNombre() + " -> timer updated succesfully!";
 }
 
-void AutoPilot::setHours(int _hourON, int _hourOFF)
+String AutoPilot::setHours(int _hourON, int _hourOFF)
 {
   this->horaON = _hourON;
   this->horaOFF = _hourOFF;
+  return disp.getNombre() + " -> timer updated succesfully!";
+
 }
 
 /**

@@ -22,8 +22,8 @@ public:
   AutoPilot();
   AutoPilot(Dispositivo _disp, int _timeon, int _timeoff);
   AutoPilot(Dispositivo _disp);
-  void setTime(long _timeon, long _timeoff);
-  void setHours(int, int);
+  String setTime(long _timeon, long _timeoff);
+  String setHours(int, int);
   bool isWorking();
   bool isPaused();
   void pause(bool);
