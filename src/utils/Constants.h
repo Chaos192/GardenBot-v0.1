@@ -18,6 +18,7 @@ public:
     static const String AUTO_PILOT_MODE;
     static const String MODE_AUTO;
     static const String MODE_MANUAL;
+    static const String DEVICE_ID_ADD;
 
     // WIFI 
     static const String SSID;

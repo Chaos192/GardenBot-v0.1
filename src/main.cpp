@@ -9,6 +9,7 @@
 #include "./model/EnvironmentControl.h"
 #include "./utils/Constants.h"
 #include "./utils/MQTTConnector.h"
+#include "FS.h"
 
 // WIFI setup
 #include <ESP8266WiFiMulti.h>
@@ -62,12 +63,14 @@ const long utcOffset = -10800;
 char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
 
 // OPERATION GLOBALS
-long send_payload = 1000 * 60 * 30;        //send payload to server every 30 minutes
-long check_env = 1000 * 10 * 60;           //check environment every 10 minutes
-long check_lamp = 60 * 1000 * 5;          //check lamp cycle every 5 minutes
-long check_auto_pilot = 1000 * 2 * 60;     //check auto pilot cycle every 2 minutes
-long check_water = 1000 * 60 * 3;     //check soil humidity every 3 hours
-long check_settings = 1000 * 60 * 24; //ask server for settings every 24 hours
+long send_payload = 1000 * 60 * 30;    //send payload to server every 30 minutes
+long check_env = 1000 * 10 * 60;       //check environment every 10 minutes
+long check_lamp = 60 * 1000 * 5;       //check lamp cycle every 5 minutes
+long check_auto_pilot = 1000 * 2 * 60; //check auto pilot cycle every 2 minutes
+long check_water = 1000 * 60 * 3;      //check soil humidity every 3 hours
+long check_settings = 1000 * 60 * 24;  //ask server for settings every 24 hours
+
+String deviceId;
 
 WiFiUDP servidorReloj;
 NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
@@ -106,6 +109,7 @@ void decodeMQTTPayload(char[]);
 void publishMQTTPayload(int, String);
 String getSensorsDataAsJSON();
 String fechaYhora();
+String registerDevice();
 
 // WIFI SETUP
 
@@ -121,7 +125,81 @@ void setupWifi()
   Serial.println("");
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
+
+  bool result = SPIFFS.begin();
+  Serial.println("SPIFFS opened: " + result);
+
+  // this opens the file "f.txt" in read-mode
+  File f = SPIFFS.open(Constants::DEVICE_ID_ADD, "r");
+
+  if (!f)
+  {
+    // send POST request to API for registration
+    Serial.println("Device not registered yet, trying to sign in...");
+    String dev_id = registerDevice();
+
+    // open the file in write mode
+    File f = SPIFFS.open(Constants::DEVICE_ID_ADD, "w");
+    if (!f)
+    {
+      Serial.println("Error registering device");
+    }
+    // now write two lines in key/value style with  end-of-line characters
+    f.println(dev_id);
+    deviceId = dev_id;
+  }
+  else
+  {
+    // we could open the file
+    while (f.available())
+    {
+      //Lets read line by line from the file
+      deviceId = f.readStringUntil('n');
+      Serial.println(deviceId);
+    }
+  }
+  f.close();
 }
+
+String registerDevice()
+{
+  String dev_id;
+  if (WiFi.status() == WL_CONNECTED)
+  {
+    WiFiClient client;
+    HTTPClient http;
+    String mac = WiFi.macAddress();
+
+    http.begin(client, Constants::URL);
+    http.addHeader("Content-Type", "text/plain");
+    int httpCode = http.POST(mac);
+
+    // httpCode will be negative on error
+    if (httpCode > 0)
+    {
+      // HTTP header has been send and Server response header has been handled
+      Serial.printf("[HTTP] POST... code: %d\n", httpCode);
+
+      // file found at server
+      if (httpCode == HTTP_CODE_OK)
+      {
+        built_in.blink();
+        const String &payload = http.getString();
+        dev_id = payload;
+        Serial.println(payload);
+      }
+    }
+    else
+    {
+      Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+    }
+
+    http.end();
+  }
+  return dev_id;
+}
+
+
 
 /**************************************
  * gets sensor data as JSON string and
@@ -182,7 +260,9 @@ String getSensorsDataAsJSON()
 
   const size_t capacity = JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(5);
   DynamicJsonDocument doc(capacity);
+  
   JsonObject data = doc.createNestedObject(Constants::DATA);
+  data[Constants::DEVICE_ID] = deviceId;
   data[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
   data[Constants::TEMP] = map.get(Constants::TEMP);
   data[Constants::HUM_SOIL] = soilHum;
@@ -204,7 +284,7 @@ void setupPeripherals()
   sensorMaceta.begin();
   waterPump.begin();
   built_in.begin();
-  
+
   control.start();
   control.setParams(aireSeco, aireHum); //set default parameters
   Serial.println(autoVent.setMode(Constants::MODE_AUTO));
@@ -243,7 +323,7 @@ void checkEnvironment()
 }
 
 void checkLamp()
-{ 
+{
   clienteReloj.update();
   if (!autoLamp.isWorking())
   {
@@ -297,7 +377,8 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
   }
 }
 
-void publishMQTTPayload(String code, String payload) {
+void publishMQTTPayload(String code, String payload)
+{
   const size_t capacity = JSON_OBJECT_SIZE(2) + 60;
   DynamicJsonDocument doc(capacity);
   doc[Constants::NOT_ID] = code;
@@ -383,11 +464,10 @@ void decodeMQTTPayload(char payload[])
 
     if (cycleOn && cycleOff)
     {
-      cycleOn = cycleOn * 1000 * 60;            //convert to minutes
+      cycleOn = cycleOn * 1000 * 60; //convert to minutes
       cycleOff = cycleOff * 1000 * 60;
       autoVent.setTime(cycleOn, cycleOff);
       publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
-
     }
 
     if (hourOn && hourOff)
@@ -453,4 +533,4 @@ void loop()
   timer.run();
   MQTTLoop();
   MQTTSubscribe();
-} 
+}
