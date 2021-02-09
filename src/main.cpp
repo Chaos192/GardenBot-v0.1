@@ -129,7 +129,7 @@ void setupWifi()
   bool result = SPIFFS.begin();
   Serial.println("SPIFFS opened: " + result);
 
-  // this opens the file "f.txt" in read-mode
+  // try to open def id file, if not exists register new device
   File f = SPIFFS.open(Constants::DEVICE_ID_ADD, "r");
 
   if (!f)
@@ -144,7 +144,7 @@ void setupWifi()
     {
       Serial.println("Error registering device");
     }
-    // now write two lines in key/value style with  end-of-line characters
+    // now write deviceId from server into file
     f.println(dev_id);
     deviceId = dev_id;
   }
@@ -520,7 +520,7 @@ void setup()
   setupPeripherals();
   setupWifi();
   setupTimerIntervals();
-  MQTTBegin();
+  MQTTBegin(deviceId);
   MQTTSetCallback(mqttCallback);
   checkEnvironment();
   autoPilotVent();

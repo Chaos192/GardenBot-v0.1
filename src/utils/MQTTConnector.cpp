@@ -14,6 +14,7 @@ PubSubClient mqtt(wifiClient);
 
 boolean mqttInitCompleted = false;
 String clientId = "gardenBot" + String(ESP.getChipId());
+String dev_id;
 
 void performConnect()
 {
@@ -39,12 +40,13 @@ void performConnect()
 
 boolean MQTTPublish(String topic, String payload)
 {
+  String topic_char = dev_id + "/" + topic;
   char * payload_char = new char[payload.length() + 1];
   strcpy(payload_char, payload.c_str());
   boolean retval = false;
   if (mqtt.connected())
   {
-    retval = mqtt.publish(topic.c_str(), payload_char);
+    retval = mqtt.publish(topic_char.c_str(), payload_char);
   }
   return retval;
 }
@@ -64,9 +66,10 @@ boolean MQTTIsConnected()
   return mqtt.connected();
 }
 
-void MQTTBegin()
+void MQTTBegin(String deviceId)
 {
   mqtt.setServer(MQTT_BROKER, MQTT_BROKER_PORT);
+  dev_id = deviceId;
   mqttInitCompleted = true;
 }
 

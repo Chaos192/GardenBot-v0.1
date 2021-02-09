@@ -15,6 +15,7 @@ const String Constants::MODE_MANUAL = "manual";
 
 const String Constants::SSID = "FUMANCHU";
 const String Constants::PASS = "heyholetsgo";
+const String Constants::DEVICE_ID_ADD = "/id.txt";
 
 const String Constants::MQTT_USERNAME = "manuelrg88@gmail.com";
 const String Constants::BASE_TOPIC = Constants::MQTT_USERNAME + "/gardenbot";
