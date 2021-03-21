@@ -89,6 +89,7 @@ AutoPilot autoLamp(lampara, horaLampON, horaLampOFF);
 EnvironmentControl control(sensorAire, ventilador, intractor, extractor, autoVent);
 
 //FUNCTION PROTOTYPES
+bool checkDeviceRegistration();
 void setupPeripherals();
 void setDefaultSettings();
 void setupWifi();
@@ -110,6 +111,7 @@ void publishMQTTPayload(int, String);
 String getSensorsDataAsJSON();
 String fechaYhora();
 String registerDevice();
+String deviceRegistrationAsJSON();
 
 // WIFI SETUP
 
@@ -126,6 +128,18 @@ void setupWifi()
   Serial.print("Connected! IP address: ");
   Serial.println(WiFi.localIP());
 
+  if (checkDeviceRegistration())
+  {
+    Serial.print("Device Ready for Operation");
+  }
+  else
+  {
+    Serial.print("Unkown Error ocurred during device registration");
+  }
+}
+
+bool checkDeviceRegistration()
+{
   bool result = SPIFFS.begin();
   Serial.println("SPIFFS opened: " + result);
 
@@ -138,15 +152,24 @@ void setupWifi()
     Serial.println("Device not registered yet, trying to sign in...");
     String dev_id = registerDevice();
 
-    // open the file in write mode
-    File f = SPIFFS.open(Constants::DEVICE_ID_ADD, "w");
-    if (!f)
+    if (dev_id != "")
     {
-      Serial.println("Error registering device");
+      // open the file in write mode
+      File f = SPIFFS.open(Constants::DEVICE_ID_ADD, "w");
+      if (!f)
+      {
+        Serial.println("Error registering device");
+        return false;
+      }
+      else
+      {
+        // now write deviceId from server into file
+        f.println(dev_id);
+        deviceId = dev_id;
+        Serial.println("Device ID stored correctly");
+        return true;
+      }
     }
-    // now write deviceId from server into file
-    f.println(dev_id);
-    deviceId = dev_id;
   }
   else
   {
@@ -156,10 +179,20 @@ void setupWifi()
       //Lets read line by line from the file
       deviceId = f.readStringUntil('n');
       Serial.println(deviceId);
+      f.close();
+      return true;
     }
   }
   f.close();
 }
+
+/**
+ * GRAPHQL RES FORMAT :
+ * {
+  "data": { ... },
+  "errors": [ ... ]
+}
+*/
 
 String registerDevice()
 {
@@ -168,38 +201,37 @@ String registerDevice()
   {
     WiFiClient client;
     HTTPClient http;
-    String mac = WiFi.macAddress();
-
-    http.begin(client, Constants::URL);
-    http.addHeader("Content-Type", "text/plain");
-    int httpCode = http.POST(mac);
-
-    // httpCode will be negative on error
-    if (httpCode > 0)
+    if (http.begin(client, Constants::URL))
     {
-      // HTTP header has been send and Server response header has been handled
-      Serial.printf("[HTTP] POST... code: %d\n", httpCode);
-
-      // file found at server
-      if (httpCode == HTTP_CODE_OK)
+      http.addHeader("Content-Type", "application/json");
+      String regMutation = deviceRegistrationAsJSON();
+      Serial.println(regMutation);
+      int httpCode = http.POST(regMutation);
+      Serial.println("code: " + httpCode);
+      // httpCode will be negative on error
+      if (httpCode > 0)
       {
-        built_in.blink();
-        const String &payload = http.getString();
-        dev_id = payload;
-        Serial.println(payload);
-      }
-    }
-    else
-    {
-      Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
-    }
+        // HTTP header has been send and Server response header has been handled
+        Serial.printf("[HTTP] POST... code: %d\n", httpCode);
 
-    http.end();
+        // file found at server
+        if (httpCode == HTTP_CODE_OK)
+        {
+          built_in.blink();
+          const String &payload = http.getString();
+          dev_id = payload;
+          Serial.println(payload);
+        }
+      }
+      else
+      {
+        Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      }
+      http.end();
+    };
   }
   return dev_id;
 }
-
-
 
 /**************************************
  * gets sensor data as JSON string and
@@ -209,10 +241,8 @@ void sendPayloadToServer()
 {
   if ((WiFi.status() == WL_CONNECTED))
   {
-
     WiFiClient client;
     HTTPClient http;
-    // configure traged server and url
     http.begin(client, Constants::URL); //HTTP
     http.addHeader("Content-Type", "application/json");
     String data = getSensorsDataAsJSON();
@@ -251,16 +281,14 @@ void sendPayloadToServer()
  * @returns JsonDocument containing all sensor data
  * as a json serialized string
  * ************************************************/
-
 String getSensorsDataAsJSON()
 {
   Serial.println("Getting all sensors data...");
   SimpleMap<String, float> map = sensorAire.getData();
   int soilHum = sensorMaceta.getDataSuelo();
-
   const size_t capacity = JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(5);
   DynamicJsonDocument doc(capacity);
-  
+
   JsonObject data = doc.createNestedObject(Constants::DATA);
   data[Constants::DEVICE_ID] = deviceId;
   data[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
@@ -270,6 +298,24 @@ String getSensorsDataAsJSON()
   String buffer = "";
   serializeJson(doc, buffer);
   return buffer;
+}
+
+/**
+ * @returns JsonDocument containing GraphQL registration mutation
+ * as a json serialized string
+ * ************************************************/
+String deviceRegistrationAsJSON()
+{
+  String mac = WiFi.macAddress();
+  StaticJsonDocument<256> doc;
+
+  doc["query"] = "mutation registerNewDevice ($deviceName: String!) {registerNewDevice (deviceName: $deviceName) { id }}";
+  doc["operationName"] = "registerNewDevice";
+  doc["variables"]["deviceName"] = mac;
+
+  String output = "";
+  serializeJson(doc, output);
+  return output;
 }
 
 // DEVICE INIT
@@ -339,13 +385,10 @@ void checkLamp()
 
 void autoPilotVent()
 {
-
   if (!autoVent.isPaused())
   {
-
     if (!autoVent.isWorking())
     {
-
       autoVent.setStart();
       autoVent.setRunning(true);
       if (autoVent.getMode().equalsIgnoreCase(Constants::MODE_AUTO))
@@ -530,7 +573,10 @@ void setup()
 
 void loop()
 {
-  timer.run();
+  if (deviceId != NULL && deviceId != "")
+  {
+    timer.run();
+  }
   MQTTLoop();
   MQTTSubscribe();
 }
