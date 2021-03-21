@@ -112,6 +112,7 @@ String getSensorsDataAsJSON();
 String fechaYhora();
 String registerDevice();
 String deviceRegistrationAsJSON();
+String decodeRegistrationPayload(String);
 
 // WIFI SETUP
 
@@ -184,15 +185,8 @@ bool checkDeviceRegistration()
     }
   }
   f.close();
+  return true;
 }
-
-/**
- * GRAPHQL RES FORMAT :
- * {
-  "data": { ... },
-  "errors": [ ... ]
-}
-*/
 
 String registerDevice()
 {
@@ -219,8 +213,8 @@ String registerDevice()
         {
           built_in.blink();
           const String &payload = http.getString();
-          dev_id = payload;
-          Serial.println(payload);
+          dev_id = decodeRegistrationPayload(payload);
+          Serial.println("new ID: " + dev_id);
         }
       }
       else
@@ -231,6 +225,23 @@ String registerDevice()
     };
   }
   return dev_id;
+}
+
+String decodeRegistrationPayload(String input)
+{
+  StaticJsonDocument<128> doc;
+
+  DeserializationError error = deserializeJson(doc, input);
+
+  if (error)
+  {
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return "";
+  }
+
+  const char *data_registerNewDevice_id = doc["data"]["registerNewDevice"]["id"];
+  return data_registerNewDevice_id;
 }
 
 /**************************************
