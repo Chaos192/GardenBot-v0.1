@@ -66,6 +66,6 @@ JsonObject SensorTierra::getJsonData() {
     JsonObject json = doc.to<JsonObject>();
     json[Constants::DEVICE_ID] = _id;
     json[Constants::DEVICE_NAME] = _nombre;
-    json[Constants::HUM_SOIL] = getDataSuelo();
+    json[Constants::SOIL_HUM] = getDataSuelo();
     return json; 
 }

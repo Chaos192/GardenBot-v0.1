@@ -31,9 +31,6 @@ public:
     int id();
     String nombre();
     void printToSerial(float t, float h);
-    JsonObject getJsonData();
-
-
 };
 
 #endif

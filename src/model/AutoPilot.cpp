@@ -87,7 +87,6 @@ void AutoPilot::startAP()
       {
         disp.off();
       }
-
       //else if light cycle is night/day
     }
     else
@@ -114,14 +113,14 @@ void AutoPilot::runForTime(void (*callback)())
     unsigned long ahoraMillis = millis();
 
     //CYCLE ON
-    if ((ahoraMillis - anteriorMillis < timeON))
+    if ((ahoraMillis - anteriorMillis) < timeON)
     {
       disp.on();
       Serial.println(disp.getNombre() + " will be on for " + timeON / 1000 / 60 + " minutes");
 
       //CYCLE OFF
     }
-    else if ((ahoraMillis - anteriorMillis >= timeON) && (ahoraMillis - anteriorMillis < timeOFF))
+    else if ((ahoraMillis - anteriorMillis) >= timeON)
     {
       disp.off();
       Serial.println(disp.getNombre() + " will be off for " + timeOFF / 1000 / 60 + " minutes");

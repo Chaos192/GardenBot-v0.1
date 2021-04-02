@@ -63,12 +63,12 @@ const long utcOffset = -10800;
 char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
 
 // OPERATION GLOBALS
-long send_payload = 1000 * 60 * 30;    //send payload to server every 30 minutes
-long check_env = 1000 * 10 * 60;       //check environment every 10 minutes
-long check_lamp = 60 * 1000 * 5;       //check lamp cycle every 5 minutes
-long check_auto_pilot = 1000 * 2 * 60; //check auto pilot cycle every 2 minutes
-long check_water = 1000 * 60 * 3;      //check soil humidity every 3 hours
-long check_settings = 1000 * 60 * 24;  //ask server for settings every 24 hours
+long send_payload = 1000 * 60 * 1;      //send payload to server every 1 minutes
+long check_env = 1000 * 10 * 60;        //check environment every 10 minutes
+long check_lamp = 60 * 1000 * 5;        //check lamp cycle every 5 minutes
+long check_auto_pilot = 1000 * 15 * 60; //check auto pilot cycle every 2 minutes
+long check_water = 1000 * 60 * 3;       //check soil humidity every 3 hours
+long check_settings = 1000 * 60 * 24;   //ask server for settings every 24 hours
 
 String deviceId;
 
@@ -178,7 +178,7 @@ bool checkDeviceRegistration()
     while (f.available())
     {
       //Lets read line by line from the file
-      deviceId = f.readStringUntil('n');
+      deviceId = f.readStringUntil('\r');
       Serial.println(deviceId);
       f.close();
       return true;
@@ -254,37 +254,35 @@ void sendPayloadToServer()
   {
     WiFiClient client;
     HTTPClient http;
-    http.begin(client, Constants::URL); //HTTP
-    http.addHeader("Content-Type", "application/json");
-    String data = getSensorsDataAsJSON();
-    Serial.println("[HTTP] POST...\n" + data);
-    if (MQTTPublish(Constants::ENVIRONMENT, data))
-    {
-      Serial.printf("MQTTPublish was succeeded.\n");
-    }
-    // start connection and send HTTP header and body
-    int httpCode = http.POST(data);
+    if (http.begin(client, Constants::URL))   //HTTP
+    { 
+      http.addHeader("Content-Type", "application/json");
+      String data = getSensorsDataAsJSON();
+      Serial.println("[HTTP] POST...\n" + data);
+      // start connection and send HTTP header and body
+      int httpCode = http.POST(data);
 
-    // httpCode will be negative on error
-    if (httpCode > 0)
-    {
-      // HTTP header has been send and Server response header has been handled
-      Serial.printf("[HTTP] POST... code: %d\n", httpCode);
-
-      // file found at server
-      if (httpCode == HTTP_CODE_OK)
+      // httpCode will be negative on error
+      if (httpCode > 0)
       {
-        built_in.blink();
-        const String &payload = http.getString();
-        Serial.println(payload);
-      }
-    }
-    else
-    {
-      Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
-    }
+        // HTTP header has been send and Server response header has been handled
+        Serial.printf("[HTTP] POST... code: %d\n", httpCode);
 
-    http.end();
+        // file found at server
+        if (httpCode == HTTP_CODE_OK)
+        {
+          built_in.blink();
+          const String &payload = http.getString();
+          Serial.println(payload);
+        }
+      }
+      else
+      {
+        Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
+      }
+
+      http.end();
+    }
   }
 }
 
@@ -297,14 +295,16 @@ String getSensorsDataAsJSON()
   Serial.println("Getting all sensors data...");
   SimpleMap<String, float> map = sensorAire.getData();
   int soilHum = sensorMaceta.getDataSuelo();
-  const size_t capacity = JSON_OBJECT_SIZE(5) + JSON_OBJECT_SIZE(5);
-  DynamicJsonDocument doc(capacity);
+  StaticJsonDocument<384> doc;
 
-  JsonObject data = doc.createNestedObject(Constants::DATA);
-  data[Constants::DEVICE_ID] = deviceId;
-  data[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
-  data[Constants::TEMP] = map.get(Constants::TEMP);
-  data[Constants::HUM_SOIL] = soilHum;
+  doc["query"] = "mutation addMeasure ($airTemp:Float!, $airHum:Float!, $soilHum:Float!, $deviceId:ID!) {addMeasure (airTemp:$airTemp, airHum:$airHum, soilHum:$soilHum, deviceId:$deviceId) { id }}";
+  doc["operationName"] = "addMeasure";
+
+  JsonObject variables = doc.createNestedObject("variables");
+  variables[Constants::AIR_TEMP] = map.get(Constants::AIR_TEMP);
+  variables[Constants::AIR_HUM] = map.get(Constants::AIR_HUM);
+  variables[Constants::SOIL_HUM] = soilHum;
+  variables[Constants::DEVICE_ID] = deviceId;
 
   String buffer = "";
   serializeJson(doc, buffer);

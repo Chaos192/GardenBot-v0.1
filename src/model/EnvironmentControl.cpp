@@ -51,7 +51,7 @@ String EnvironmentControl::setParams(int _minHum, int _maxHum) {
 String EnvironmentControl::checkEnvironment() {
 
     SimpleMap<String, float> currentData = sensor.getData();
-    int humidity = round(currentData.get(Constants::HUM_AIR));
+    int humidity = round(currentData.get(Constants::AIR_HUM));
     Serial.println("HUM " + (String) humidity);
     Serial.println("MAX HUM " + (String) minHum);
     Serial.println("MIN HUM " + (String) maxHum);

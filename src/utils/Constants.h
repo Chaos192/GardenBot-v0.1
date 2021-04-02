@@ -6,9 +6,9 @@ class Constants
 {
 public:
     //OPERATION PARAMS      
-    static const String HUM_AIR;
-    static const String HUM_SOIL;
-    static const String TEMP;
+    static const String AIR_HUM;
+    static const String SOIL_HUM;
+    static const String AIR_TEMP;
     static const String DEVICE_ID;
     static const String DEVICE_NAME;
     static const String TIMESTAMP;

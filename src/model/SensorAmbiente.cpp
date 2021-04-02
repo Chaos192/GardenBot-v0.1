@@ -36,12 +36,12 @@ SimpleMap<String, float> SensorAmbiente::getData() {
     if (isnan(_hum) || isnan(_temp)) // Check if any reads failed and exit early (to try again).
     {
         Serial.println("Failed to read from DHT sensor!");
-        dataMap.put(Constants::TEMP, 0.0f);
-        dataMap.put(Constants::HUM_AIR, 0.0f);
+        dataMap.put(Constants::AIR_TEMP, 0.0f);
+        dataMap.put(Constants::AIR_HUM, 0.0f);
 
     } else {
-        dataMap.put(Constants::TEMP, _temp);
-        dataMap.put(Constants::HUM_AIR, _hum);
+        dataMap.put(Constants::AIR_TEMP, _temp);
+        dataMap.put(Constants::AIR_HUM, _hum);
         printToSerial(_temp, _hum);
     }
 
@@ -56,21 +56,5 @@ void SensorAmbiente::printToSerial(float t, float h) {
     Serial.println("%");
 }
 
-/**
- * returns Json document 
- * containing device data and
- * measurements*/
-
-JsonObject SensorAmbiente::getJsonData() {
-    SimpleMap<String, float> map = getData();
-    const size_t capacity = JSON_OBJECT_SIZE(4);
-    DynamicJsonDocument doc(capacity);
-    JsonObject json = doc.to<JsonObject>();
-    json[Constants::DEVICE_ID] = _id;
-    json[Constants::DEVICE_NAME] = _nombre;
-    json[Constants::TEMP] = map.get(Constants::TEMP);
-    json[Constants::HUM_AIR] = map.get(Constants::HUM_AIR);
-    return json; 
-}
 
 
