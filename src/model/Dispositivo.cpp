@@ -75,11 +75,9 @@ DynamicJsonDocument Dispositivo::getJsonData()
  * acts accordingly 
  * */   
 
-void Dispositivo::receiveOrder(String message) {
-    if (message.equalsIgnoreCase("on")) {
+void Dispositivo::receiveOrder(bool action) {
+    if (action) {
         on();
-    } else if (message.equalsIgnoreCase("blink")) {
-        blink();
     } else {
         off();
     }

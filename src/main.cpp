@@ -70,7 +70,7 @@ long check_auto_pilot = 1000 * 15 * 60; //check auto pilot cycle every 2 minutes
 long check_water = 1000 * 60 * 3;       //check soil humidity every 3 hours
 long check_settings = 1000 * 60 * 24;   //ask server for settings every 24 hours
 
-String deviceId;
+String deviceId; //GLOBAL DEVICEID TO BE USED FOR AUTHENTICATION AGAINST SERVER
 
 WiFiUDP servidorReloj;
 NTPClient clienteReloj(servidorReloj, "south-america.pool.ntp.org", utcOffset);
@@ -254,8 +254,8 @@ void sendPayloadToServer()
   {
     WiFiClient client;
     HTTPClient http;
-    if (http.begin(client, Constants::URL))   //HTTP
-    { 
+    if (http.begin(client, Constants::URL)) //HTTP
+    {
       http.addHeader("Content-Type", "application/json");
       String data = getSensorsDataAsJSON();
       Serial.println("[HTTP] POST...\n" + data);
@@ -343,7 +343,7 @@ void setupPeripherals()
   built_in.begin();
 
   control.start();
-  control.setParams(aireSeco, aireHum); //set default parameters
+  control.setParams(aireSeco, aireHum, tempBaja, tempAlta); //set default parameters
   Serial.println(autoVent.setMode(Constants::MODE_AUTO));
   Serial.println(autoLamp.setMode(Constants::MODE_AUTO));
 }
@@ -426,7 +426,6 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
     char payloadStr[length + 1];
     memset(payloadStr, 0, length + 1);
     strncpy(payloadStr, (char *)payload, length);
-
     decodeMQTTPayload(payloadStr);
   }
 }
@@ -444,93 +443,105 @@ void publishMQTTPayload(String code, String payload)
 
 void decodeMQTTPayload(char payload[])
 {
-  const size_t capacity = JSON_OBJECT_SIZE(3) + JSON_OBJECT_SIZE(5) + 110;
+  String payloadStr = String(payload);
+  Serial.println(payloadStr);
+  StaticJsonDocument<384> doc;
 
-  DynamicJsonDocument doc(capacity);
-  deserializeJson(doc, payload);
-  const char *type = doc[Constants::TYPE]; // "settings" or "manual"
-  String typeStr = String(type);
-  JsonObject order = doc[Constants::ORDER];
+  DeserializationError error = deserializeJson(doc, payloadStr);
 
-  if (typeStr.equalsIgnoreCase(Constants::MANUAL))
+  if (error)
   {
-
-    int device_id = order[Constants::DEVICE_ID];
-    String action = order[Constants::ACTION];
-
-    switch (device_id)
-    {
-
-    case 0:
-      lampara.receiveOrder(action);
-      break;
-
-    case 1:
-      ventilador.receiveOrder(action);
-      break;
-
-    case 2:
-      intractor.receiveOrder(action);
-      break;
-
-    case 3:
-      extractor.receiveOrder(action);
-      break;
-
-    default:
-      Serial.println("ID no permitida o desconocida");
-    }
+    Serial.print(F("deserializeJson() failed: "));
+    Serial.println(error.f_str());
+    return;
   }
 
-  else if (typeStr.equalsIgnoreCase(Constants::SETTINGS))
+  String incomingDeviceId = doc[Constants::DEVICE_ID];
+  if (incomingDeviceId.equalsIgnoreCase(deviceId))
   {
+    const char *type = doc[Constants::TYPE]; // "settings"
+    String typeStr = String(type);
+    JsonObject order = doc[Constants::ORDER];
 
-    String autoPilotMode = order[Constants::AUTO_PILOT_MODE];
-    int minHum = order[Constants::MIN_HUM];
-    int maxHum = order[Constants::MAX_HUM];
-    int minSoil = order[Constants::MIN_SOIL];
-    int maxSoil = order[Constants::MAX_SOIL];
-    // int minTemp = order["min_temp"];  unused for the moment but kept for consistency
-    // int maxTemp = order["max_temp"];
-    int hourOn = order[Constants::HOUR_ON];
-    int hourOff = order[Constants::HOUR_OFF];
-    int cycleOn = order[Constants::CYCLE_ON];
-    int cycleOff = order[Constants::CYCLE_OFF];
-
-    if (minHum && maxHum)
+    if (typeStr.equalsIgnoreCase(Constants::MANUAL))
     {
-      String notification = control.setParams(minHum, maxHum);
-      publishMQTTPayload(Constants::CODE_ENV, notification);
-      Serial.println(control.checkEnvironment());
+      int devicePin = order[Constants::DEVICE_PIN];
+      bool action = order[Constants::ACTION];
+
+      switch (devicePin)
+      {
+
+      case 0:
+        lampara.receiveOrder(action);
+        break;
+
+      case 1:
+        ventilador.receiveOrder(action);
+        break;
+
+      case 2:
+        intractor.receiveOrder(action);
+        break;
+
+      case 3:
+        extractor.receiveOrder(action);
+        break;
+
+      default:
+        Serial.println("ID no permitida o desconocida");
+      }
     }
 
-    if (minSoil && maxSoil)
+    else if (typeStr.equalsIgnoreCase(Constants::SETTINGS))
     {
-      //TODO update watering cycle params
-      Serial.println("watering cycle params updated");
-      publishMQTTPayload(Constants::CODE_ENV, "watering cycle params updated");
-    }
 
-    if (autoPilotMode)
-    {
-      publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
-    }
+      String autoPilotMode = order[Constants::AUTO_PILOT_MODE];
+      int minHum = order[Constants::MIN_HUM];
+      int maxHum = order[Constants::MAX_HUM];
+      int minSoil = order[Constants::MIN_SOIL];
+      int maxSoil = order[Constants::MAX_SOIL];
+      int minTemp = order[Constants::MIN_TEMP];
+      int maxTemp = order[Constants::MAX_TEMP];
+      int hourOn = order[Constants::HOUR_ON];
+      int hourOff = order[Constants::HOUR_OFF];
+      int cycleOn = order[Constants::CYCLE_ON];
+      int cycleOff = order[Constants::CYCLE_OFF];
 
-    if (cycleOn && cycleOff)
-    {
-      cycleOn = cycleOn * 1000 * 60; //convert to minutes
-      cycleOff = cycleOff * 1000 * 60;
-      autoVent.setTime(cycleOn, cycleOff);
-      publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
-    }
+      if (minHum && maxHum)
+      {
+        String notification = control.setParams(minHum, maxHum, minTemp, maxTemp);
+        publishMQTTPayload(Constants::CODE_ENV, notification);
+        Serial.println(control.checkEnvironment());
+      }
 
-    if (hourOn && hourOff)
-    {
-      publishMQTTPayload(Constants::CODE_DEV, autoLamp.setHours(hourOn, hourOff));
-      Serial.println(autoLamp.setMode(Constants::MODE_AUTO));
-      autoLamp.setRunning(true);
-      autoLamp.pause(false);
-      checkLamp();
+      if (minSoil && maxSoil)
+      {
+        //TODO update watering cycle params
+        Serial.println("watering cycle params updated");
+        publishMQTTPayload(Constants::CODE_ENV, "watering cycle params updated");
+      }
+
+      if (autoPilotMode)
+      {
+        publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
+      }
+
+      if (cycleOn && cycleOff)
+      {
+        cycleOn = cycleOn * 1000 * 60; //convert to minutes
+        cycleOff = cycleOff * 1000 * 60;
+        autoVent.setTime(cycleOn, cycleOff);
+        publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
+      }
+
+      if (hourOn && hourOff)
+      {
+        publishMQTTPayload(Constants::CODE_DEV, autoLamp.setHours(hourOn, hourOff));
+        Serial.println(autoLamp.setMode(Constants::MODE_AUTO));
+        autoLamp.setRunning(true);
+        autoLamp.pause(false);
+        checkLamp();
+      }
     }
   }
 }

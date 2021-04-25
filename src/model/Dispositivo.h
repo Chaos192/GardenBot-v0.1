@@ -20,7 +20,7 @@ public:
   void off();
   void begin();
   void blink();
-  void receiveOrder(String);
+  void receiveOrder(bool action);
   String getEstado();
   String getNombre();
   int getId();

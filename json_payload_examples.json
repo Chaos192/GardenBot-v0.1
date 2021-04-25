@@ -1,0 +1,28 @@
+ORDER - SETTINGS
+
+{
+    "type":"settings",
+    "order": {
+        "auto_pilot_mode": "manual",
+        "min_hum":75,
+        "max_hum":88,
+        "min_soil":0,
+        "max_soil":90,
+        "min_temp":19,
+        "max_temp":28,
+        "hour_on": 21,
+        "hour_off": 9,
+        "cycle_on": 7,
+        "cycle_off": 8
+    }
+}
+
+ORDER - MANUAL CONTROL
+{
+    "device_id":"g123gh2hg1h2g3f1h12g31h2"
+    "type":"manual",
+    "order": {
+        "device_pin": 1,
+        "action": true
+    }
+}

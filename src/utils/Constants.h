@@ -5,7 +5,7 @@
 class Constants
 {
 public:
-    //OPERATION PARAMS      
+    //OPERATION PARAMS
     static const String AIR_HUM;
     static const String SOIL_HUM;
     static const String AIR_TEMP;
@@ -20,7 +20,7 @@ public:
     static const String MODE_MANUAL;
     static const String DEVICE_ID_ADD;
 
-    // WIFI 
+    // WIFI
     static const String SSID;
     static const String PASS;
 
@@ -39,7 +39,10 @@ public:
     static const String SETTINGS;
     static const String ORDER;
     static const String ACTION;
+    static const String DEVICE_PIN;
 
+    static const String MIN_TEMP;
+    static const String MAX_TEMP;
     static const String MIN_HUM;
     static const String MAX_HUM;
     static const String MIN_SOIL;
@@ -55,8 +58,6 @@ public:
     static const String NOT_MSG;
     static const String CODE_ENV;
     static const String CODE_DEV;
-
-
 };
 
 #endif

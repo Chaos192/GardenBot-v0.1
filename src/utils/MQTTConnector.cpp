@@ -7,7 +7,6 @@
 #define MQTT_BROKER_PORT  1883
 #define MQTT_USERNAME     "manuelrg88@gmail.com"
 #define MQTT_KEY          "Mg412115"
-#define BASE_TOPIC        "manuelrg88@gmail.com/gardenbot"
 
 WiFiClient wifiClient;
 PubSubClient mqtt(wifiClient);

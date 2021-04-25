@@ -30,7 +30,10 @@ const String Constants::MANUAL = "manual";
 const String Constants::SETTINGS = "settings";
 const String Constants::ORDER = "order";
 const String Constants::ACTION = "action";
+const String Constants::DEVICE_PIN = "device_pin";
 
+const String Constants::MIN_TEMP = "min_temp";
+const String Constants::MAX_TEMP = "max_temp";
 const String Constants::MIN_HUM = "min_hum";
 const String Constants::MAX_HUM = "max_hum";
 const String Constants::MIN_SOIL = "min_soil";
