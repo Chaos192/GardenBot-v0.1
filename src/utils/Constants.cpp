@@ -45,5 +45,7 @@ const String Constants::CYCLE_OFF = "cycle_off";
 
 const String Constants::NOT_ID = "notification_id";
 const String Constants::NOT_MSG = "message";
-const String Constants::CODE_DEV = "DEV";
-const String Constants::CODE_ENV = "ENV";
+const int Constants::CODE_DEV = 101;
+const int Constants::CODE_ENV_NORMAL = 102;
+const int Constants::CODE_ENV_HIGH = 103;
+const int Constants::CODE_DEV_LINKED = 104;

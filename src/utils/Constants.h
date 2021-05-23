@@ -56,8 +56,10 @@ public:
 
     static const String NOT_ID;
     static const String NOT_MSG;
-    static const String CODE_ENV;
-    static const String CODE_DEV;
+    static const int CODE_ENV_NORMAL;
+    static const int CODE_DEV;
+    static const int CODE_ENV_HIGH;
+    static const int CODE_DEV_LINKED;
 };
 
 #endif

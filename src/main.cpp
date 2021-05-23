@@ -432,8 +432,9 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
 
 void publishMQTTPayload(String code, String payload)
 {
-  const size_t capacity = JSON_OBJECT_SIZE(2) + 60;
+  const size_t capacity = JSON_OBJECT_SIZE(3) + 60;
   DynamicJsonDocument doc(capacity);
+  doc[Constants::DEVICE_ID] = deviceId;
   doc[Constants::NOT_ID] = code;
   doc[Constants::NOT_MSG] = payload;
   String buffer;
@@ -510,7 +511,7 @@ void decodeMQTTPayload(char payload[])
       if (minHum && maxHum)
       {
         String notification = control.setParams(minHum, maxHum, minTemp, maxTemp);
-        publishMQTTPayload(Constants::CODE_ENV, notification);
+        publishMQTTPayload(Constants::CODE_ENV_NORMAL, notification);
         Serial.println(control.checkEnvironment());
       }
 
@@ -518,7 +519,7 @@ void decodeMQTTPayload(char payload[])
       {
         //TODO update watering cycle params
         Serial.println("watering cycle params updated");
-        publishMQTTPayload(Constants::CODE_ENV, "watering cycle params updated");
+        publishMQTTPayload(Constants::CODE_ENV_NORMAL, "watering cycle params updated");
       }
 
       if (autoPilotMode)
@@ -551,10 +552,10 @@ void checkSoilWatering()
   int soilHumdity = sensorMaceta.getDataSuelo();
   if (soilHumdity <= tierraSeca)
   {
-    publishMQTTPayload(Constants::CODE_ENV, "Comenzando ciclo de regado...");
+    publishMQTTPayload(Constants::CODE_ENV_NORMAL, "Comenzando ciclo de regado...");
     //TODO implement START watering cycle and notification
     delay(1000l);
-    publishMQTTPayload(Constants::CODE_ENV, "Ciclo de regalo finalizado");
+    publishMQTTPayload(Constants::CODE_ENV_NORMAL, "Ciclo de regalo finalizado");
   }
   else
   {

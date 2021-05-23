@@ -48,7 +48,7 @@ String EnvironmentControl::setParams(int _minHum, int _maxHum, int _minTemp, int
     this->maxHum = _maxHum;
     this->minTemp = _minTemp;
     this->maxTemp = _maxTemp;
-    return "Updated humidity and temperature parameters successfully";
+    return "Parametros de temperatura y humedad actualizados";
 }
 
 bool EnvironmentControl::isTempFine(int temp) { return (temp > minTemp) && (temp < maxTemp); }

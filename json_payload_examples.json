@@ -26,3 +26,12 @@ ORDER - MANUAL CONTROL
         "action": true
     }
 }
+
+
+NOTIFICATION
+{
+    "deviceId":"sdasdasdasdq265d76as4d7a65s4d76a5",
+    "type":{"ENVIRONMENT", "DEVICE", "OTHER"},
+    "priority":{"LOW", "HIGH"},
+    "message": "some message, like a notification about the temperature being too damn high"
+}

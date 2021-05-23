@@ -33,15 +33,14 @@ String AutoPilot::setTime(long _timeon, long _timeoff)
 {
   this->timeON = _timeon;
   this->timeOFF = _timeoff;
-  return disp.getNombre() + " -> timer updated succesfully!";
+  return disp.getNombre() + " -> temporizador actualizado";
 }
 
 String AutoPilot::setHours(int _hourON, int _hourOFF)
 {
   this->horaON = _hourON;
   this->horaOFF = _hourOFF;
-  return disp.getNombre() + " -> timer updated succesfully!";
-
+  return disp.getNombre() + " -> temporizador actuaizado";
 }
 
 /**
@@ -51,7 +50,7 @@ String AutoPilot::setHours(int _hourON, int _hourOFF)
 String AutoPilot::setMode(String _mode)
 {
   this->mode = _mode;
-  return disp.getNombre() + " ->Autopilot mode updated " + (String) mode;
+  return disp.getNombre() + " -> Piloto automatico ahora esta en modo " + (String)mode;
 }
 
 String AutoPilot::getMode()
@@ -111,7 +110,7 @@ void AutoPilot::runForTime(void (*callback)())
   if (isRunning && !paused)
   {
     unsigned long ahoraMillis = millis();
-
+    Serial.println("tiempo transcurrido: " + (ahoraMillis - anteriorMillis));
     //CYCLE ON
     if ((ahoraMillis - anteriorMillis) < timeON)
     {
@@ -120,7 +119,7 @@ void AutoPilot::runForTime(void (*callback)())
 
       //CYCLE OFF
     }
-    else if ((ahoraMillis - anteriorMillis) >= timeON)
+    else if ((ahoraMillis - anteriorMillis) > timeON)
     {
       disp.off();
       Serial.println(disp.getNombre() + " will be off for " + timeOFF / 1000 / 60 + " minutes");
