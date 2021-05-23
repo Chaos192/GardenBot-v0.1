@@ -245,17 +245,21 @@ String decodeRegistrationPayload(String input)
   return data_registerNewDevice_id;
 }
 
-
 /**
  * post notification to server to be relayed to user's device
 */
 void postNotification(int code, String payload)
 {
-  StaticJsonDocument<192> doc;
-  doc[Constants::DEVICE_ID] = deviceId;
-  doc[Constants::CODE] = code;
-  doc[Constants::NOT_MSG] = payload;
-  String buffer;
+  StaticJsonDocument<512> doc;
+
+  doc["query"] = "mutation addNotification ($deviceId: ID!, $code: Int!, $message: String!) {addNotification (deviceId: $deviceId, code: $code, message: $message) { code }}";
+  doc["operationName"] = "addNotification";
+
+  JsonObject variables = doc.createNestedObject("variables");
+  variables[Constants::DEVICE_ID] = deviceId;
+  variables[Constants::CODE] = code;
+  variables[Constants::NOT_MSG] = payload;
+  String buffer = "";
   serializeJson(doc, buffer);
   int post = postToServer(buffer);
 }
@@ -281,12 +285,9 @@ int postToServer(String data)
       {
         // HTTP header has been send and Server response header has been handled
         Serial.printf("[HTTP] POST... code: %d\n", httpCode);
-        if (httpCode == HTTP_CODE_OK)
-        {
-          built_in.blink();
-          const String &payload = http.getString();
-          Serial.println(payload);
-        }
+        built_in.blink();
+        const String &payload = http.getString();
+        Serial.println(payload);
       }
       else
       {
@@ -398,7 +399,7 @@ void checkEnvironment()
   if (control.isWorking() && !control.isPaused())
   {
     String notification = control.checkEnvironment();
-    Serial.println(notification);
+    postNotification(Constants::CODE_ENV_NORMAL, notification);
   }
 }
 
@@ -479,29 +480,31 @@ void decodeMQTTPayload(char payload[])
     {
       int devicePin = order[Constants::DEVICE_PIN];
       bool action = order[Constants::ACTION];
+      String notification;
 
       switch (devicePin)
       {
 
       case 0:
-        lampara.receiveOrder(action);
+        notification = lampara.receiveOrder(action);
         break;
 
       case 1:
-        ventilador.receiveOrder(action);
+        notification = ventilador.receiveOrder(action);
         break;
 
       case 2:
-        intractor.receiveOrder(action);
+        notification = intractor.receiveOrder(action);
         break;
 
       case 3:
-        extractor.receiveOrder(action);
+        notification = extractor.receiveOrder(action);
         break;
 
       default:
         Serial.println("ID no permitida o desconocida");
       }
+      postNotification(Constants::CODE_DEV, notification);
     }
 
     else if (typeStr.equalsIgnoreCase(Constants::SETTINGS))

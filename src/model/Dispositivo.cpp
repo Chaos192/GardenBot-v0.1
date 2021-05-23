@@ -75,10 +75,12 @@ DynamicJsonDocument Dispositivo::getJsonData()
  * acts accordingly 
  * */   
 
-void Dispositivo::receiveOrder(bool action) {
+String Dispositivo::receiveOrder(bool action) {
     if (action) {
         on();
+        return getNombre() + " encendido";
     } else {
         off();
+        return getNombre() + " apagado";
     }
 }
