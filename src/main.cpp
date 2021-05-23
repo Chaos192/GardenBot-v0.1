@@ -107,7 +107,8 @@ void autoPilotVent();
 void callback();
 void mqttCallback(char *, byte *, unsigned int);
 void decodeMQTTPayload(char[]);
-void publishMQTTPayload(int, String);
+void postNotification(int, String);
+int postToServer(String);
 String getSensorsDataAsJSON();
 String fechaYhora();
 String registerDevice();
@@ -244,11 +245,27 @@ String decodeRegistrationPayload(String input)
   return data_registerNewDevice_id;
 }
 
-/**************************************
- * gets sensor data as JSON string and
- * sends to server via POST method
- * ************************************/
-void sendPayloadToServer()
+
+/**
+ * post notification to server to be relayed to user's device
+*/
+void postNotification(int code, String payload)
+{
+  StaticJsonDocument<192> doc;
+  doc[Constants::DEVICE_ID] = deviceId;
+  doc[Constants::CODE] = code;
+  doc[Constants::NOT_MSG] = payload;
+  String buffer;
+  serializeJson(doc, buffer);
+  int post = postToServer(buffer);
+}
+
+/**
+ * send json string payloads to server
+ * returns http code or -1 if not connected
+ * 
+ * */
+int postToServer(String data)
 {
   if ((WiFi.status() == WL_CONNECTED))
   {
@@ -257,18 +274,13 @@ void sendPayloadToServer()
     if (http.begin(client, Constants::URL)) //HTTP
     {
       http.addHeader("Content-Type", "application/json");
-      String data = getSensorsDataAsJSON();
-      Serial.println("[HTTP] POST...\n" + data);
       // start connection and send HTTP header and body
       int httpCode = http.POST(data);
-
       // httpCode will be negative on error
       if (httpCode > 0)
       {
         // HTTP header has been send and Server response header has been handled
         Serial.printf("[HTTP] POST... code: %d\n", httpCode);
-
-        // file found at server
         if (httpCode == HTTP_CODE_OK)
         {
           built_in.blink();
@@ -280,10 +292,21 @@ void sendPayloadToServer()
       {
         Serial.printf("[HTTP] POST... failed, error: %s\n", http.errorToString(httpCode).c_str());
       }
-
       http.end();
+      return httpCode;
     }
   }
+  return -1;
+}
+
+/**************************************
+ * gets sensor data as JSON string and
+ * sends to server via POST method
+ * ************************************/
+void sendPayloadToServer()
+{
+  String data = getSensorsDataAsJSON();
+  int post = postToServer(data);
 }
 
 /**
@@ -430,18 +453,6 @@ void mqttCallback(char *topic, byte *payload, unsigned int length)
   }
 }
 
-void publishMQTTPayload(String code, String payload)
-{
-  const size_t capacity = JSON_OBJECT_SIZE(3) + 60;
-  DynamicJsonDocument doc(capacity);
-  doc[Constants::DEVICE_ID] = deviceId;
-  doc[Constants::NOT_ID] = code;
-  doc[Constants::NOT_MSG] = payload;
-  String buffer;
-  serializeJson(doc, buffer);
-  MQTTPublish(Constants::NOTIFICATIONS, buffer);
-}
-
 void decodeMQTTPayload(char payload[])
 {
   String payloadStr = String(payload);
@@ -511,7 +522,7 @@ void decodeMQTTPayload(char payload[])
       if (minHum && maxHum)
       {
         String notification = control.setParams(minHum, maxHum, minTemp, maxTemp);
-        publishMQTTPayload(Constants::CODE_ENV_NORMAL, notification);
+        postNotification(Constants::CODE_ENV_NORMAL, notification);
         Serial.println(control.checkEnvironment());
       }
 
@@ -519,12 +530,12 @@ void decodeMQTTPayload(char payload[])
       {
         //TODO update watering cycle params
         Serial.println("watering cycle params updated");
-        publishMQTTPayload(Constants::CODE_ENV_NORMAL, "watering cycle params updated");
+        postNotification(Constants::CODE_ENV_NORMAL, "watering cycle params updated");
       }
 
       if (autoPilotMode)
       {
-        publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
+        postNotification(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
       }
 
       if (cycleOn && cycleOff)
@@ -532,12 +543,12 @@ void decodeMQTTPayload(char payload[])
         cycleOn = cycleOn * 1000 * 60; //convert to minutes
         cycleOff = cycleOff * 1000 * 60;
         autoVent.setTime(cycleOn, cycleOff);
-        publishMQTTPayload(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
+        postNotification(Constants::CODE_DEV, autoVent.setMode(autoPilotMode));
       }
 
       if (hourOn && hourOff)
       {
-        publishMQTTPayload(Constants::CODE_DEV, autoLamp.setHours(hourOn, hourOff));
+        postNotification(Constants::CODE_DEV, autoLamp.setHours(hourOn, hourOff));
         Serial.println(autoLamp.setMode(Constants::MODE_AUTO));
         autoLamp.setRunning(true);
         autoLamp.pause(false);
@@ -552,10 +563,10 @@ void checkSoilWatering()
   int soilHumdity = sensorMaceta.getDataSuelo();
   if (soilHumdity <= tierraSeca)
   {
-    publishMQTTPayload(Constants::CODE_ENV_NORMAL, "Comenzando ciclo de regado...");
+    postNotification(Constants::CODE_ENV_NORMAL, "Comenzando ciclo de regado...");
     //TODO implement START watering cycle and notification
     delay(1000l);
-    publishMQTTPayload(Constants::CODE_ENV_NORMAL, "Ciclo de regalo finalizado");
+    postNotification(Constants::CODE_ENV_NORMAL, "Ciclo de regalo finalizado");
   }
   else
   {

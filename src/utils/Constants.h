@@ -54,7 +54,7 @@ public:
 
     //NOTIFICATION
 
-    static const String NOT_ID;
+    static const String CODE;
     static const String NOT_MSG;
     static const int CODE_ENV_NORMAL;
     static const int CODE_DEV;

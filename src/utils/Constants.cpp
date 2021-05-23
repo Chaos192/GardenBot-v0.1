@@ -43,7 +43,7 @@ const String Constants::HOUR_OFF = "hour_off";
 const String Constants::CYCLE_ON = "cycle_on";
 const String Constants::CYCLE_OFF = "cycle_off";
 
-const String Constants::NOT_ID = "notification_id";
+const String Constants::CODE = "code";
 const String Constants::NOT_MSG = "message";
 const int Constants::CODE_DEV = 101;
 const int Constants::CODE_ENV_NORMAL = 102;
