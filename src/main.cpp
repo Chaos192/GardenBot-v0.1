@@ -61,14 +61,15 @@ uint8_t pump = D4;
 SimpleTimer timer;
 const long utcOffset = -10800;
 char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"};
-
+long twentyFourHours = 1000 * 60 * 60  * 24;
 // OPERATION GLOBALS
 long send_payload = 1000 * 60 * 1;      //send payload to server every 1 minutes
 long check_env = 1000 * 2 * 60;        //check environment every 2 minutes
 long check_lamp = 60 * 1000 * 5;        //check lamp cycle every 5 minutes
 long check_auto_pilot = 1000 * 15 * 60; //check auto pilot cycle every 2 minutes
 long check_water = 1000 * 60 * 3;       //check soil humidity every 3 hours
-long check_settings = 1000 * 60 * 24;   //ask server for settings every 24 hours
+long check_settings = twentyFourHours;   //ask server for settings every 24 hours
+long watering_clock = 0L;
 
 String deviceId; //GLOBAL DEVICEID TO BE USED FOR AUTHENTICATION AGAINST SERVER
 
@@ -267,7 +268,6 @@ void postNotification(int code, String payload)
 /**
  * send json string payloads to server
  * returns http code or -1 if not connected
- * 
  * */
 int postToServer(String data)
 {
@@ -533,7 +533,7 @@ void decodeMQTTPayload(char payload[])
       {
         //TODO update watering cycle params
         Serial.println("watering cycle params updated");
-        postNotification(Constants::CODE_ENV_NORMAL, "watering cycle params updated");
+        postNotification(Constants::CODE_WATER_CYCLE, "Parámetros de regado actualizados");
       }
 
       if (autoPilotMode)
@@ -564,16 +564,19 @@ void decodeMQTTPayload(char payload[])
 void checkSoilWatering()
 {
   int soilHumdity = sensorMaceta.getDataSuelo();
-  if (soilHumdity <= tierraSeca)
+  long ahora = millis();
+  if (soilHumdity <= tierraSeca && (ahora - watering_clock == twentyFourHours))
   {
-    postNotification(Constants::CODE_ENV_NORMAL, "Comenzando ciclo de regado...");
-    //TODO implement START watering cycle and notification
-    delay(1000l);
-    postNotification(Constants::CODE_ENV_NORMAL, "Ciclo de regalo finalizado");
+    postNotification(Constants::CODE_WATER_CYCLE, "Deberías regar el jardín");   // start watering cycle 24hs after top layer of soil is dry
   }
-  else
+  else if (soilHumdity <= tierraSeca && watering_clock == 0L)
   {
-    //TODO implement STOP watering cycle and notification
+    postNotification(Constants::CODE_WATER_CYCLE, "Comenzando ciclo de espera de regado");
+    watering_clock = millis();    //start counting
+  }
+  else if (soilHumdity > tierraSeca && watering_clock > 0L)
+  {
+    watering_clock = 0L; // reset clock
   }
 }
 
@@ -586,7 +589,7 @@ void setupTimerIntervals()
   timer.setInterval(check_env, checkEnvironment);
   timer.setInterval(check_auto_pilot, autoPilotVent);
   timer.setInterval(check_lamp, checkLamp);
-  // timer.setInterval(check_water, checkSoilWatering);
+  timer.setInterval(check_water, checkSoilWatering);
   timer.setInterval(send_payload, sendPayloadToServer);
   // timer.setInterval(check_settings, getSettings);
 }

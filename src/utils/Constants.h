@@ -60,6 +60,7 @@ public:
     static const int CODE_DEV;
     static const int CODE_ENV_HIGH;
     static const int CODE_DEV_LINKED;
+    static const int CODE_WATER_CYCLE;
 };
 
 #endif

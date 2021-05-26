@@ -47,5 +47,6 @@ const String Constants::CODE = "code";
 const String Constants::NOT_MSG = "message";
 const int Constants::CODE_DEV = 101;
 const int Constants::CODE_ENV_NORMAL = 102;
+const int Constants::CODE_WATER_CYCLE = 105;
 const int Constants::CODE_ENV_HIGH = 103;
 const int Constants::CODE_DEV_LINKED = 104;
