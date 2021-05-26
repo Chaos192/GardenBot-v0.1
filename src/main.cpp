@@ -64,7 +64,7 @@ char diaSemana[7][12] = {"Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "V
 
 // OPERATION GLOBALS
 long send_payload = 1000 * 60 * 1;      //send payload to server every 1 minutes
-long check_env = 1000 * 10 * 60;        //check environment every 10 minutes
+long check_env = 1000 * 2 * 60;        //check environment every 2 minutes
 long check_lamp = 60 * 1000 * 5;        //check lamp cycle every 5 minutes
 long check_auto_pilot = 1000 * 15 * 60; //check auto pilot cycle every 2 minutes
 long check_water = 1000 * 60 * 3;       //check soil humidity every 3 hours

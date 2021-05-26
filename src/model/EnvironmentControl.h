@@ -36,6 +36,12 @@ class EnvironmentControl
         bool is2Cold(int temp);
         bool is2Wet(int hum);
         bool is2Dry(int hum);
+        void turnEverythingOn();
+        void ventAuto();
+        void ventOnIntrOn();
+        void ventAutoIntrOn();
+        void extrOn();
+        void ventAutoExtrOn();
         String checkEnvironment();
 };
 
