@@ -28,7 +28,7 @@ ESP8266WiFiMulti WiFiMulti;
 #define aireSeco 70
 #define aireHum 99
 #define horaLampON 10
-#define horaLampOFF 22
+#define horaLampOFF 23
 
 // DHT11
 #include <DHT.h>
@@ -557,6 +557,10 @@ void decodeMQTTPayload(char payload[])
         autoLamp.pause(false);
         checkLamp();
       }
+    }
+    else if (typeStr.equalsIgnoreCase(Constants::STATUS_REQUEST))
+    {
+       
     }
   }
 }

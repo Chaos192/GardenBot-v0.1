@@ -28,6 +28,7 @@ const String Constants::ENVIRONMENT = Constants::BASE_TOPIC + "/environment";
 const String Constants::TYPE = "type";
 const String Constants::MANUAL = "manual";
 const String Constants::SETTINGS = "settings";
+const String Constants::STATUS_REQUEST = "status_request";
 const String Constants::ORDER = "order";
 const String Constants::ACTION = "action";
 const String Constants::DEVICE_PIN = "device_pin";

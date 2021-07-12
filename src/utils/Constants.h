@@ -38,6 +38,7 @@ public:
     static const String MANUAL;
     static const String SETTINGS;
     static const String ORDER;
+    static const String STATUS_REQUEST;
     static const String ACTION;
     static const String DEVICE_PIN;
 

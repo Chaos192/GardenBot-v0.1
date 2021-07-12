@@ -138,7 +138,7 @@ String EnvironmentControl::checkEnvironment()
     {
         Serial.println("DRY COLD CONDITIONS");
         ventAuto();
-        return "Humedad ambiental baja y temperatura alta, intentando regular";
+        return "Humedad ambiental baja y temperatura baja, intentando regular";
     }
     else if (is2Wet(humidity) && is2Hot(temp)) //HOT HUMID CONDITIONS
     {
